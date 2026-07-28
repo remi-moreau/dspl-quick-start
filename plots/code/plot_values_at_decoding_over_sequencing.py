@@ -95,6 +95,11 @@ PLOT_STYLE_MAP = {
         "marker": "D",
         "markersize": 5.5,
     },
+    "coverage_mean_marker": {
+        "linestyle": "--",
+        "linewidth": 1.8,
+        "alpha": 0.9,
+    },
 }
 
 
@@ -132,6 +137,14 @@ def main() -> None:
     for column in METRIC_COLUMN_MAP.values():
         df[column] = pd.to_numeric(df[column], errors="coerce")
 
+    average_coverage_by_item = {
+        item_id: float(
+            df[df["item_id"] == item_id]["coverage_at_decoding"].mean()
+        )
+        for item_id in ITEM_ID_NAME_MAP
+        if not df[df["item_id"] == item_id]["coverage_at_decoding"].dropna().empty
+    }
+
     # Convert ratio to percent and sequencing duration from seconds to minutes.
     df["perfectly_decoded_payload_ratio_at_decoding"] = (
         df["perfectly_decoded_payload_ratio_at_decoding"] * 100.0
@@ -164,6 +177,18 @@ def main() -> None:
                 label=ITEM_ID_NAME_MAP.get(item_id, f"item {item_id}"),
                 **style,
             )
+
+        if metric_key == "coverage":
+            marker_style = PLOT_STYLE_MAP["coverage_mean_marker"]
+            for item_id, avg_cov in average_coverage_by_item.items():
+                ax.axhline(
+                    y=avg_cov,
+                    color=ITEM_ID_COLOR_MAP.get(item_id),
+                    linestyle=marker_style["linestyle"],
+                    linewidth=marker_style["linewidth"],
+                    alpha=marker_style["alpha"],
+                    label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item {item_id}')} mean={avg_cov:.2f}",
+                )
 
         ax.set_title(PLOT_NAME_MAP[metric_key])
         ax.set_xlabel(X_AXIS_NAME_MAP["run_number"])
