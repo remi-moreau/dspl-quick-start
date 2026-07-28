@@ -1,0 +1,6 @@
+decoding_settings:
+  label:
+    - barcode01_agilent_cdhit_clustering
+  input_settings:
+    name: read_pool
+    read_pool_id: barcode01_agilent

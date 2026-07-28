@@ -1,0 +1,7 @@
+decoding_settings:
+  default_inner_decoding_settings:
+    consensus_settings: 
+      name: VOTE_LOGITS_CONSENSUS
+      mode: MAJO_VOTE
+      read_filtering_mode: EXACT_LENGTH
+    

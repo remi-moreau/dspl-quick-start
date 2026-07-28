@@ -1,0 +1,9 @@
+decoding_settings:
+  items:
+    - 0:
+        skip: true
+    - 1:
+        skip: true
+    - 2:
+        name: Bird_MOTIF_PAIRCODE
+        skip: false

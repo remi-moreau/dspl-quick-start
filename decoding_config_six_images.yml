@@ -1,0 +1,64 @@
+exp_id: six_images
+
+exp_description: >
+  Encoding and decoding of six images of the JPEG AIC 3 dataset, 
+  using JPEGDNA as the outer coding protocol. 
+
+database: database/dspl.db
+
+decoding_settings:
+  ref_enc_run_id: full_encoding_11
+
+  run_name: decoding # pipelinesys will automatically provide an unused positive integer run_number n, such that the dec_run_id will be run_name+"_"+run_number
+
+  loop: null
+
+  labels:
+    - test_label
+  
+  output_data_root: output_data/six-images/decoding
+
+  input_settings:
+    name: read_folder
+    read_folder_path: reads/new_wetlab/six-images/
+    move_reads_to: reads/new_wetlab_six-images_processed/
+    reads_per_second: 10
+    database_ingestion_settings:
+      read_pool_id: new_wetlab_six_images
+      read_pool_description: >
+        Reads of the progressive decoding 
+        wetlab of july 2026.
+      simulation: false
+      aligner: minimap2
+      force: false
+      dspl_root: .
+
+  multi_pass_settings:
+    name: MULTI_PASS # Replace with "SINGLE_PASS" to have single pass behavior
+    watch: true
+    granular: false
+    time_limit: inf
+    pass_limit: inf
+    read_batch_size: 20000      
+    early_stop_settings:
+      name: PSNR
+      threshold: 35
+
+  default_inner_decoding_settings:
+    preprocessing_settings:
+      name: ALIGNMENT
+    clustering_settings:
+      name: ALIGNMENT
+    consensus_settings: 
+      name: VOTE_LOGITS_CONSENSUS
+      mode: QUAL_VOTE
+      read_filtering_mode: EXACT_LENGTH
+
+  default_outer_decoding_settings:
+    name: JPEGDNA
+    ext_header_rs_bytes: 17
+    ext_main_section_rs_bytes: 6
+    jpegdna_python_executable: /home/remi-moreau/miniconda3/envs/jpegdna_vm_py311/bin/python
+
+
+    

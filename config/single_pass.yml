@@ -1,0 +1,3 @@
+decoding_settings:
+  multi_pass_settings:
+    name: SINGLE_PASS

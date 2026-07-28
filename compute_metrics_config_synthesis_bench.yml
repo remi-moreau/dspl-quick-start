@@ -1,0 +1,8 @@
+exp_id: synthesis_bench
+
+database: database/dspl.db
+
+metrics_computation_settings:
+  decoding_run_label: barcode01_agilent_alignment_decoding
+  force: false
+  aligner: EXACT

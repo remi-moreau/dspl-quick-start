@@ -1,0 +1,6 @@
+decoding_settings:
+  default_outer_decoding_settings:
+    name: JPEGDNA
+    ext_header_rs_bytes: 17
+    ext_main_section_rs_bytes: 0
+    jpegdna_python_executable: /home/remi-moreau/miniconda3/envs/jpegdna_vm_py311/bin/python

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8' />
+  <title>Run Log - full_encoding_11</title>
+  <style>
+    body { font-family: "Segoe UI", Tahoma, sans-serif; margin: 24px; color: #1f2937; background: #f8fafc; }
+    h1, h2 { margin-bottom: 8px; }
+    .card { background: #ffffff; border: 1px solid #dbe4ee; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #dbe4ee; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #eff6ff; }
+    details { margin-left: 14px; }
+    summary { cursor: pointer; padding: 4px 0; }
+    .log-line { margin-left: 28px; padding: 2px 0; white-space: pre-wrap; }
+    .log-line-long { margin-left: 28px; padding: 2px 0; }
+    .log-line-long summary { cursor: pointer; padding: 2px 0; list-style: none; white-space: pre-wrap; }
+    .log-line-long-body { margin-left: 16px; padding: 4px 0; white-space: pre-wrap; }
+    .log-line-long-hint { color: #94a3b8; margin-left: 6px; font-style: italic; }
+    .log-node { border-left: 3px solid transparent; border-radius: 6px; padding: 2px 8px 4px 8px; margin-bottom: 3px; }
+    .log-node.block-edge { background: #f2f8ff; border-left-color: #cfe3ff; }
+    .log-node.block-node { background: #fff4f4; border-left-color: #ffd6d6; }
+    .log-node.block-sub_run { background: #ffffff; border-left: 2px solid #000000; }
+    .log-node.block-sub_run_multipass { background: #edfaf3; border-left: 3px solid #6fcf97; }
+    .log-node.block-pass { background: #f0faf5; border-left: 3px solid #34d399; }
+    .log-node.block-generic { background: transparent; border-left-color: transparent; }
+    .level-debug { color: #475569; }
+    .level-info { color: #0f172a; }
+    .level-warning { color: #9a3412; }
+    .level-error { color: #991b1b; }
+    .level-critical { color: #7f1d1d; font-weight: 700; }
+    .table-scroll { overflow-x: auto; }
+    .data-table th.col-value, .data-table td.col-value { min-width: 320px; }
+  </style>
+</head>
+<body>
+  <div class='card'>
+    <h1>Run summary</h1>
+    <p style='margin:6px 0 10px 0;color:#374151;font-style:italic;'>Full encoding of the six images of the JPEG AIC 3 dataset, using the settings defined in settings.py</p>
+    <h2>Run stats</h2>
+    <table>
+      <thead><tr><th>Stat</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Run duration</td><td>70.267s (1 minutes and 10 seconds)</td></tr>
+        <tr><td>N° Compound calls</td><td>8</td></tr>
+        <tr><td>N° Subrun calls</td><td>4</td></tr>
+        <tr><td>N° Node calls</td><td>0</td></tr>
+        <tr><td>N° Edge calls</td><td>4</td></tr>
+      </tbody>
+    </table>
+    <h2>Subrun tree</h2><div style='margin-left:14px;border-radius:6px;padding:4px 8px;margin-bottom:3px;background:#ffffff;border-left:2px solid #000000;'>Build Run Metadata<span style='font-size:0.75em;color:#16a34a;margin-left:6px;'>[ended in 0.00s]</span><span style='color:#64748b;margin-left:8px;font-style:italic;'>Build run metadata with outputs path output_data/six_images, outer encoding protocol {&#x27;name&#x27;: &#x27;JPEGDNA&#x27;, &#x27;jxl_quality&#x27;: 78, &#x27;jxl_skip&#x27;: False, &#x27;jxl_binary_path&#x27;: ... and inner encoding protocol {&#x27;name&#x27;: &#x27;REGION_FORMATTING&#x27;}.</span></div>
+<details open style='margin-left:14px;border-radius:6px;padding:2px 8px 4px 8px;margin-bottom:3px;background:#ffffff;border-left:2px solid #000000;'><summary style='cursor:pointer;padding:4px 0;'>Full encoding<span style='font-size:0.75em;color:#16a34a;margin-left:6px;'>[ended in 70.18s]</span><span style='color:#64748b;margin-left:8px;font-style:italic;'>Full encoding with per-item outer encoding settings and global inner encoding protocol REGION_FORMATTING.</span></summary><div style='margin-left:14px;border-radius:6px;padding:4px 8px;margin-bottom:3px;background:#ffffff;border-left:2px solid #000000;'>Outer encoding<span style='font-size:0.75em;color:#16a34a;margin-left:6px;'>[ended in 70.08s]</span><span style='color:#64748b;margin-left:8px;font-style:italic;'>Outer encoding only. Items count: 6.</span></div>
+<div style='margin-left:14px;border-radius:6px;padding:4px 8px;margin-bottom:3px;background:#ffffff;border-left:2px solid #000000;'>Inner encoding<span style='font-size:0.75em;color:#16a34a;margin-left:6px;'>[ended in 0.02s]</span><span style='color:#64748b;margin-left:8px;font-style:italic;'>Inner encoding with global protocol REGION_FORMATTING.</span></div></details>
+  </div>
+
+    
+
+  <div class='card'>
+    <h1>Logs</h1>
+    <details class='log-node level-info' open>
+      <summary>14:00:51 INFO ENDED Main run [full_encoding] in 70.248s (1 minutes and 10 seconds).</summary>
+      <div class='log-line level-info'>13:59:41 INFO Starting run [full_encoding]</div>
+<details class='log-node block-sub_run level-info'><summary>13:59:41 INFO ENDED Sub run [Build Run Metadata] in 0.000s (0 minutes and 0 seconds).</summary><div class='log-line level-info'>13:59:41 INFO Starting sub_run [Build Run Metadata]...</div>
+<div class='log-line level-info'>13:59:41 INFO Run metadata built. Default outer encoding protocol: JPEGDNA. Default inner encoding protocol: REGION_FORMATTING.</div></details>
+<details class='log-node block-sub_run level-info'><summary>14:00:51 INFO ENDED Sub run [Full encoding] in 70.184s (1 minutes and 10 seconds).</summary><div class='log-line level-info'>13:59:41 INFO Starting sub_run [Full encoding]...</div>
+<details class='log-node block-sub_run level-info'><summary>14:00:51 INFO ENDED Sub run [Outer encoding] in 70.084s (1 minutes and 10 seconds).</summary><div class='log-line level-info'>13:59:41 INFO Starting sub_run [Outer encoding]...</div>
+<div class='log-line level-info'>13:59:51 INFO JPEGDNA encoding done for item Chest: header=1 oligo, body=5769 oligos.</div>
+<div class='log-line level-info'>13:59:55 INFO JPEGDNA encoding done for item Woman: header=1 oligo, body=2177 oligos.</div>
+<div class='log-line level-info'>13:59:58 INFO JPEGDNA encoding done for item Burger: header=1 oligo, body=1729 oligos.</div>
+<div class='log-line level-info'>14:00:01 INFO JPEGDNA encoding done for item Bird: header=1 oligo, body=2021 oligos.</div>
+<div class='log-line level-info'>14:00:12 INFO JPEGDNA encoding done for item Night: header=1 oligo, body=6029 oligos.</div>
+<div class='log-line level-info'>14:00:51 INFO JPEGDNA encoding done for item Day: header=1 oligo, body=16866 oligos.</div>
+<div class='log-line level-info'>14:00:51 INFO Initialized encoded_payload_map (PklEdge) with path: output_data/six_images, dtypeIn: &lt;class &#x27;list&#x27;&gt;, dtypeOut: None, extension: .pkl</div>
+<details class='log-node block-edge level-info'><summary>14:00:51 INFO ENDED &quot;encoded_payload_map&quot; edge forward in 0.004s</summary><div class='log-line level-info'>14:00:51 INFO Starting edge [encoded_payload_map]...</div>
+<div class='log-line level-info'>14:00:51 INFO Saved data for edge encoded_payload_map at output_data/six_images/full_encoding_11/encoded_payload_map.pkl.</div>
+<div class='log-line level-info'>14:00:51 INFO Data for edge encoded_payload_map saved at output_data/six_images/full_encoding_11/encoded_payload_map.pkl. Monitoring is set to False, so no monitoring data.</div></details>
+<div class='log-line level-info'>14:00:51 INFO Initialized encoded_payload_map (FastaEdge) with path: output_data/six_images, dtypeIn: list, dtypeOut: dict, extension: .fasta</div>
+<details class='log-node block-edge level-info'><summary>14:00:51 INFO ENDED &quot;encoded_payload_map&quot; edge forward in 0.019s</summary><div class='log-line level-info'>14:00:51 INFO Starting edge [encoded_payload_map]...</div>
+<div class='log-line level-info'>14:00:51 INFO Saved data for edge encoded_payload_map at output_data/six_images/full_encoding_11/encoded_payload_map.fasta.</div>
+<div class='log-line level-info'>14:00:51 INFO Data for edge encoded_payload_map saved at output_data/six_images/full_encoding_11/encoded_payload_map.fasta. Monitoring is set to False, so no monitoring data.</div></details></details>
+<details class='log-node block-sub_run level-info'><summary>14:00:51 INFO ENDED Sub run [Inner encoding] in 0.016s (0 minutes and 0 seconds).</summary><div class='log-line level-info'>14:00:51 INFO Starting sub_run [Inner encoding]...</div></details>
+<div class='log-line level-info'>14:00:51 INFO Initialized formatted_oligo_map (FastaEdge) with path: output_data/six_images, dtypeIn: dict, dtypeOut: dict, extension: .fasta</div>
+<details class='log-node block-edge level-info'><summary>14:00:51 INFO ENDED &quot;formatted_oligo_map&quot; edge forward in 0.013s</summary><div class='log-line level-info'>14:00:51 INFO Starting edge [formatted_oligo_map]...</div>
+<div class='log-line level-info'>14:00:51 INFO Saved data for edge formatted_oligo_map at output_data/six_images/full_encoding_11/formatted_oligo_map.fasta.</div>
+<div class='log-line level-info'>14:00:51 INFO Data for edge formatted_oligo_map saved at output_data/six_images/full_encoding_11/formatted_oligo_map.fasta. Monitoring is set to False, so no monitoring data.</div></details>
+<div class='log-line level-info'>14:00:51 INFO Initialized run_metadata (PklEdge) with path: output_data/six_images, dtypeIn: &lt;class &#x27;dict&#x27;&gt;, dtypeOut: None, extension: .pkl</div>
+<details class='log-node block-edge level-info'><summary>14:00:51 INFO ENDED &quot;run_metadata&quot; edge forward in 0.000s</summary><div class='log-line level-info'>14:00:51 INFO Starting edge [run_metadata]...</div>
+<div class='log-line level-info'>14:00:51 INFO Saved data for edge run_metadata at output_data/six_images/full_encoding_11/run_metadata.pkl.</div>
+<div class='log-line level-info'>14:00:51 INFO Data for edge run_metadata saved at output_data/six_images/full_encoding_11/run_metadata.pkl. Monitoring is set to False, so no monitoring data.</div></details></details>
+    </details>
+  </div>
+
+    
+</body>
+</html>

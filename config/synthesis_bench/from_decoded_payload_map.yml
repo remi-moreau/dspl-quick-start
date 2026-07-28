@@ -1,0 +1,4 @@
+decoding_settings:
+  input_settings:
+    name: decoded_payload_map
+    dec_run_id: decoding_15

@@ -1,0 +1,16 @@
+1 ligne header
+puis
+1983 oligos
+puis
+1983
+puis
+1698
+TOTAL: 5665 lignes, 5664 oligos
+
+Dans formatted_oligo_map.fasta de synthesis-bench: 11328 lignes soit 5664 oligos.
+En prenant des oligos au hasard dans l'un, je les retrouve dans l'autre.
+
+NOTE IMPORTANTE: le mapping est:
+- premier item du csv = deuxième item de la formatted oligo map
+- deuxième item du csv = premier de la formatted oligo map
+- troisième = troisième
