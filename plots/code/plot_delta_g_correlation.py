@@ -18,10 +18,12 @@ MIN_PERFECT_DECODED_RATIO = 0.5
 
 VISUAL_INFINITY_FACTOR = 1.08
 
-DELTA_G_PRECISION = 1.5
+DELTA_G_PRECISION = 1
 
 MIN_POINTS_PER_BIN_ACCEPTED = 10
 MIN_POINTS_PER_BIN_RATIO = 2
+
+DISPLAY_LIN_REG = True
 
 SQL_QUERY = """
 WITH eligible_run_item AS (
@@ -66,14 +68,25 @@ ITEM_ID_NAME_MAP = {
 
 # ---- OUTPUT PATH ----
 
-OUTPUT_PATH_PNG = "../plots/delta_g_correlation.png"
-OUTPUT_PATH_SVG = "../plots/delta_g_correlation.svg"
+OUTPUT_PATH_FIG_COVERAGE_PNG = "../plots/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.png"
+OUTPUT_PATH_FIG_COVERAGE_SVG = "../plots/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.svg"
+
+OUTPUT_PATH_FIG_DROPOUT_PNG = "../plots/delta_g_effect_on_dropout.png"
+OUTPUT_PATH_FIG_DROPOUT_SVG = "../plots/delta_g_effect_on_dropout.svg"
 
 # ---- NAMES ----
 
-FIGURE_TITLE = "Cluster size at decoding against delta G."
+FIGURE_COVERAGE_TITLE = "Cluster size at decoding against delta G."
 
-FIGURE_DESCRIPTION = f"Cluster size at decoding against delta G, for label {RUN_LABEL}."
+FIGURE_COVERAGE_DESCRIPTION = (
+    f"Cluster size at decoding against delta G, for label {RUN_LABEL}."
+)
+
+FIGURE_DROPOUT_TITLE = "Delta G effect on dropout probability."
+
+FIGURE_DROPOUT_DESCRIPTION = (
+    f"Excluded-reference probability over delta G bins, for label {RUN_LABEL}."
+)
 
 PLOT_NAME_MAP = {
     "delta_g_correlation": "Coverage at first correct decoding against delta G (zeros shown at infinity)",
@@ -88,7 +101,7 @@ X_AXIS_NAME_MAP = {
 Y_AXIS_NAME_MAP = {
     "count_at_first_decoding": "Coverage at first correct decoding (mean of positive runs)",
     "count_at_first_decoding_binned": "Mean positive coverage in bin",
-    "excluded_ratio_percent": "Excluded references (%)",
+    "excluded_ratio_probability": "Probability for a reference to be excluded",
 }
 
 
@@ -118,6 +131,17 @@ PLOT_STYLE_MAP = {
         "alpha": 0.85,
         "edgecolor": "black",
         "linewidth": 0.4,
+    },
+    "delta_g_dropout_probability": {
+        "bar_width_ratio": 1.0,
+        "alpha": 0.9,
+        "edgecolor": "none",
+        "linewidth": 0.0,
+    },
+    "delta_g_dropout_lin_reg": {
+        "linestyle": "-",
+        "linewidth": 2.0,
+        "alpha": 0.95,
     }
 }
 
@@ -139,8 +163,10 @@ def _resolve_path_from_script(relative_path: Path) -> Path:
 
 def main() -> None:
     db_path = _resolve_path_from_script(Path(DB_PATH))
-    output_path_png = _resolve_path_from_script(Path(OUTPUT_PATH_PNG))
-    output_path_svg = _resolve_path_from_script(Path(OUTPUT_PATH_SVG))
+    output_path_fig_coverage_png = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_COVERAGE_PNG))
+    output_path_fig_coverage_svg = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_COVERAGE_SVG))
+    output_path_fig_dropout_png = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_DROPOUT_PNG))
+    output_path_fig_dropout_svg = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_DROPOUT_SVG))
 
     if not ITEM_IDS_TO_PLOT:
         raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
@@ -210,18 +236,17 @@ def main() -> None:
                     f": rejected={n_item_rejected}"
                 )
 
-    fig, (ax_scatter, ax_hist, ax_ratio) = plt.subplots(
-        3,
+    fig_coverage, (ax_scatter, ax_hist) = plt.subplots(
+        2,
         1,
-        figsize=(11.5, 13.5),
+        figsize=(11.5, 10.5),
         sharex=True,
-        gridspec_kw={"height_ratios": [2.4, 1.3, 1.3]},
+        gridspec_kw={"height_ratios": [2.4, 1.3]},
     )
     scatter_style = PLOT_STYLE_MAP["delta_g_correlation"]
     excluded_scatter_style = PLOT_STYLE_MAP["delta_g_correlation_excluded"]
     hist_style = PLOT_STYLE_MAP["delta_g_binned_regression"]
     binned_rows: list[pd.DataFrame] = []
-    ratio_rows: list[pd.DataFrame] = []
 
     finite_means = accepted_reference_level_df["mean_positive_coverage"].dropna()
     visual_infinity_y = (
@@ -314,9 +339,32 @@ def main() -> None:
 
     ax_hist.set_title(PLOT_NAME_MAP["delta_g_binned_regression"])
     ax_hist.set_ylabel(Y_AXIS_NAME_MAP["count_at_first_decoding_binned"])
+    ax_hist.set_xlabel(X_AXIS_NAME_MAP["delta_g"])
     ax_hist.grid(True, alpha=0.25, linestyle="--")
     if binned_rows:
         ax_hist.legend()
+
+    fig_coverage.suptitle(FIGURE_COVERAGE_TITLE, fontsize=16, y=0.985)
+    fig_coverage.text(
+        0.5,
+        0.948,
+        FIGURE_COVERAGE_DESCRIPTION,
+        ha="center",
+        va="top",
+        wrap=True,
+        fontsize=11,
+    )
+    fig_coverage.tight_layout(rect=(0.03, 0.04, 0.97, 0.9))
+
+    plt.show()
+
+    output_path_fig_coverage_png.parent.mkdir(parents=True, exist_ok=True)
+    output_path_fig_coverage_svg.parent.mkdir(parents=True, exist_ok=True)
+    fig_coverage.savefig(output_path_fig_coverage_png, dpi=250)
+    fig_coverage.savefig(output_path_fig_coverage_svg)
+    plt.close(fig_coverage)
+
+    ratio_rows_by_item: dict[int, pd.DataFrame] = {}
 
     for item_id, _item_name in ITEM_ID_NAME_MAP.items():
         accepted_item_df = accepted_reference_level_df[
@@ -361,55 +409,102 @@ def main() -> None:
         if merged_counts.empty:
             continue
 
-        merged_counts["excluded_ratio_percent"] = (
-            100.0 * merged_counts["n_excluded"] / merged_counts["n_total"]
+        merged_counts["excluded_ratio_probability"] = (
+            merged_counts["n_excluded"] / merged_counts["n_total"]
         )
         merged_counts["bin_center"] = merged_counts["bin_upper"] - (DELTA_G_PRECISION / 2.0)
         merged_counts["item_id"] = item_id
-        ratio_rows.append(merged_counts)
+        ratio_rows_by_item[item_id] = merged_counts
 
-    if ratio_rows:
-        ratio_df = pd.concat(ratio_rows, ignore_index=True)
-        item_ids_in_ratio = sorted(ratio_df["item_id"].unique().tolist())
-        n_items_in_ratio = len(item_ids_in_ratio)
-        group_width_ratio = DELTA_G_PRECISION * float(hist_style["group_width_ratio"])
-        bar_width_ratio = group_width_ratio / max(n_items_in_ratio, 1)
+    item_ids_for_dropout = [item_id for item_id in ITEM_ID_NAME_MAP if item_id in ITEM_IDS_TO_PLOT]
+    if not item_ids_for_dropout:
+        raise ValueError("No item id selected for dropout plot. Check ITEM_IDS_TO_PLOT.")
 
-        for idx, item_id in enumerate(item_ids_in_ratio):
-            item_ratio = ratio_df[ratio_df["item_id"] == item_id].sort_values("bin_center")
-            x_positions = (
-                item_ratio["bin_center"].to_numpy(dtype=float)
-                + (idx - (n_items_in_ratio - 1) / 2.0) * bar_width_ratio
+    fig_dropout, axes_dropout = plt.subplots(
+        len(item_ids_for_dropout),
+        1,
+        figsize=(11.5, 4.8 * len(item_ids_for_dropout)),
+        sharex=False,
+    )
+    if len(item_ids_for_dropout) == 1:
+        axes_dropout = [axes_dropout]
+
+    dropout_style = PLOT_STYLE_MAP["delta_g_dropout_probability"]
+    lin_reg_style = PLOT_STYLE_MAP["delta_g_dropout_lin_reg"]
+
+    for ax_item_dropout, item_id in zip(axes_dropout, item_ids_for_dropout):
+        item_name = ITEM_ID_NAME_MAP.get(item_id, f"item_id={item_id}")
+        item_ratio = ratio_rows_by_item.get(item_id)
+        if item_ratio is None or item_ratio.empty:
+            ax_item_dropout.text(
+                0.5,
+                0.5,
+                "No bins pass threshold",
+                ha="center",
+                va="center",
+                transform=ax_item_dropout.transAxes,
             )
-            ax_ratio.bar(
-                x_positions,
-                item_ratio["excluded_ratio_percent"],
+        else:
+            bar_width_ratio = DELTA_G_PRECISION * float(dropout_style["bar_width_ratio"])
+            x_data = item_ratio["bin_center"].to_numpy(dtype=float)
+            y_data = item_ratio["excluded_ratio_probability"].to_numpy(dtype=float)
+            ax_item_dropout.bar(
+                x_data,
+                y_data,
                 width=bar_width_ratio,
                 color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
-                alpha=hist_style["alpha"],
-                edgecolor=hist_style["edgecolor"],
-                linewidth=hist_style["linewidth"],
-                label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item_id={item_id}')} bins>= {MIN_POINTS_PER_BIN_RATIO}",
+                alpha=dropout_style["alpha"],
+                edgecolor=dropout_style["edgecolor"],
+                linewidth=dropout_style["linewidth"],
+                label=f"{item_name} bins>= {MIN_POINTS_PER_BIN_RATIO}",
                 align="center",
             )
 
-    ax_ratio.set_title(PLOT_NAME_MAP["delta_g_excluded_ratio"])
-    ax_ratio.set_xlabel(X_AXIS_NAME_MAP["delta_g"])
-    ax_ratio.set_ylabel(Y_AXIS_NAME_MAP["excluded_ratio_percent"])
-    ax_ratio.set_ylim(0, 100)
-    ax_ratio.grid(True, alpha=0.25, linestyle="--")
-    if ratio_rows:
-        ax_ratio.legend()
+            if DISPLAY_LIN_REG and len(x_data) >= 2:
+                slope, intercept = np.polyfit(x_data, y_data, deg=1)
+                y_pred = (slope * x_data) + intercept
+                ss_res = float(np.sum((y_data - y_pred) ** 2))
+                ss_tot = float(np.sum((y_data - float(np.mean(y_data))) ** 2))
+                r_squared = 1.0 - (ss_res / ss_tot) if ss_tot > 0 else 1.0
 
-    fig.suptitle(FIGURE_TITLE, fontsize=16, y=0.985)
-    fig.text(0.5, 0.948, FIGURE_DESCRIPTION, ha="center", va="top", wrap=True, fontsize=11)
-    fig.tight_layout(rect=(0.03, 0.04, 0.97, 0.9))
+                x_line = np.linspace(float(np.min(x_data)), float(np.max(x_data)), 200)
+                y_line = (slope * x_line) + intercept
+                ax_item_dropout.plot(
+                    x_line,
+                    y_line,
+                    color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
+                    linestyle=lin_reg_style["linestyle"],
+                    linewidth=lin_reg_style["linewidth"],
+                    alpha=lin_reg_style["alpha"],
+                    label=f"lin reg: coef={slope:.4f}, R²={r_squared:.4f}",
+                )
 
-    output_path_png.parent.mkdir(parents=True, exist_ok=True)
-    output_path_svg.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path_png, dpi=250)
-    fig.savefig(output_path_svg)
-    plt.close(fig)
+            ax_item_dropout.legend()
+
+        ax_item_dropout.set_title(f"{PLOT_NAME_MAP['delta_g_excluded_ratio']} - {item_name}")
+        ax_item_dropout.set_xlabel(X_AXIS_NAME_MAP["delta_g"])
+        ax_item_dropout.set_ylabel(Y_AXIS_NAME_MAP["excluded_ratio_probability"])
+        ax_item_dropout.grid(True, alpha=0.25, linestyle="--")
+
+    fig_dropout.suptitle(FIGURE_DROPOUT_TITLE, fontsize=16, y=0.985)
+    fig_dropout.text(
+        0.5,
+        0.955,
+        FIGURE_DROPOUT_DESCRIPTION,
+        ha="center",
+        va="top",
+        wrap=True,
+        fontsize=11,
+    )
+    fig_dropout.tight_layout(rect=(0.03, 0.04, 0.97, 0.92))
+
+    plt.show()
+
+    output_path_fig_dropout_png.parent.mkdir(parents=True, exist_ok=True)
+    output_path_fig_dropout_svg.parent.mkdir(parents=True, exist_ok=True)
+    fig_dropout.savefig(output_path_fig_dropout_png, dpi=250)
+    fig_dropout.savefig(output_path_fig_dropout_svg)
+    plt.close(fig_dropout)
 
 
 if __name__ == "__main__":

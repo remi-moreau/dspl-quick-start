@@ -52,7 +52,7 @@ PLOT_NAME_MAP = {
     "coverage": "Average coverage at decoding over sequencing",
     "hamming_distance_normalized_at_decoding": "Normalized Hamming distance at decoding", 
     "perfectly_decoded_payload_ratio_at_decoding": "Perfectly decoded payload ratio at decoding",
-    "estimated_sequencing_duration_at_decoding": "Estimated sequencing duration of the decoding run",
+    "estimated_sequencing_duration_at_decoding": "Sequencing duration of the decoding run",
 }
 
 X_AXIS_NAME_MAP = {
@@ -63,7 +63,7 @@ Y_AXIS_NAME_MAP = {
     "coverage": "Norma. avg. coverage",
     "hamming_distance_normalized_at_decoding": "Norm. Hamming distance", 
     "perfectly_decoded_payload_ratio_at_decoding": "Perfectly decoded payload ratio (%)",
-    "estimated_sequencing_duration_at_decoding": "Est. sequencing duration (minutes)",
+    "estimated_sequencing_duration_at_decoding": "Sequencing duration (minutes)",
 }
 
 
@@ -217,6 +217,8 @@ def main() -> None:
         wrap=True,
     )
     fig.subplots_adjust(top=0.84, hspace=0.35, wspace=0.25)
+
+    plt.show()
 
     output_path_png.parent.mkdir(parents=True, exist_ok=True)
     output_path_svg.parent.mkdir(parents=True, exist_ok=True)
