@@ -3,32 +3,37 @@
 #### CONFIG ####
 ################
 
-# ---- DATA PATH ----
+# ---- DATABASE ----
 from pathlib import Path
 
-DATA_PATH_PREFIX = "../../database/exports/"
+DB_PATH = "../../database/dspl.db"
 
-DATA_PATH_SUFFIX = "barcode01_agilent/metrics_view_run_item/at_decoding.csv"
+RUN_LABEL = "barcode01_agilent_alignment_decoding"
 
-DATA_PATH = Path(DATA_PATH_PREFIX) / Path(DATA_PATH_SUFFIX)
+ITEM_IDS_TO_PLOT = [0, 1]
+
+SQL_QUERY = """
+SELECT
+        m.item_id,
+        m.dec_run_id,
+        m.estimated_sequencing_duration_at_decoding,
+        m.coverage_at_decoding,
+        m.hamming_distance_normalized_at_decoding,
+        m.perfectly_decoded_payload_ratio_at_decoding
+FROM metrics_view_run_item_at_decoding m
+JOIN decoding_run_label_record l
+    ON l.exp_id = m.exp_id
+ AND l.dec_run_id = m.dec_run_id
+WHERE l.label = ?
+    AND m.item_id IN ({item_placeholders})
+    AND m.pass_at_decoding IS NOT NULL
+ORDER BY m.item_id ASC, m.dec_run_id ASC
+"""
 
 ITEM_ID_NAME_MAP = {
     0: "JPEG DNA reference",
     1: "JPEG DNA delta G",
 }
-
-
-# ---- DATA STRUCTURE ----
-
-EXPECTED_COLUMN_NAMES_IN_THE_CSV = [
-    "item_id",
-    "dec_run_id",
-    "estimated_sequencing_duration_at_decoding",
-    "coverage_at_decoding",
-    "hamming_distance_normalized_at_decoding",
-    "perfectly_decoded_payload_ratio_at_decoding",
-]
-
 
 # ---- OUTPUT PATH ----
 
@@ -107,6 +112,7 @@ PLOT_STYLE_MAP = {
 #### CODE ####
 ##############
 
+import sqlite3
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -121,18 +127,22 @@ METRIC_COLUMN_MAP = {
 
 def main() -> None:
     base_dir = Path(__file__).resolve().parent
-    data_path = (base_dir / DATA_PATH).resolve()
+    db_path = (base_dir / DB_PATH).resolve()
     output_path_png = (base_dir / OUTPUT_PATH_PNG).resolve()
     output_path_svg = (base_dir / OUTPUT_PATH_SVG).resolve()
 
-    df = pd.read_csv(data_path)
-    missing_columns = [
-        column for column in EXPECTED_COLUMN_NAMES_IN_THE_CSV if column not in df.columns
-    ]
-    if missing_columns:
-        raise ValueError(
-            "Missing expected columns in CSV: " + ", ".join(sorted(missing_columns))
-        )
+    if not ITEM_IDS_TO_PLOT:
+        raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
+
+    item_placeholders = ",".join(["?"] * len(ITEM_IDS_TO_PLOT))
+    query = SQL_QUERY.format(item_placeholders=item_placeholders)
+    query_params = [RUN_LABEL, *ITEM_IDS_TO_PLOT]
+
+    with sqlite3.connect(db_path) as conn:
+        df = pd.read_sql_query(query, conn, params=query_params)
+
+    if df.empty:
+        raise ValueError("No data returned by SQL query. Check RUN_LABEL and ITEM_IDS_TO_PLOT.")
 
     for column in METRIC_COLUMN_MAP.values():
         df[column] = pd.to_numeric(df[column], errors="coerce")

@@ -2,33 +2,50 @@
 #### CONFIG ####
 ################
 
-# ---- DATA PATH ----
+# ---- DATABASE ----
 from pathlib import Path
 
-DATA_PATH_PREFIX = "../../database/exports/"
+DB_PATH = "../../database/dspl.db"
 
-DATA_PATH_SUFFIX = "barcode01_agilent/metrics_view_cluster/at_decoding.csv"
+RUN_LABEL = "barcode01_agilent_alignment_decoding"
 
-DATA_PATH = Path(DATA_PATH_PREFIX) / Path(DATA_PATH_SUFFIX)
+ITEM_IDS_TO_PLOT = [0, 1]
+
+SQL_QUERY = """
+WITH eligible_run_item AS (
+    SELECT
+            m.exp_id,
+            m.dec_run_id,
+            m.item_id
+    FROM metrics_view_run_cluster_at_decoding m
+    JOIN decoding_run_label_record l
+        ON l.exp_id = m.exp_id
+    AND l.dec_run_id = m.dec_run_id
+    WHERE l.label = ?
+        AND m.item_id IN ({item_placeholders})
+    GROUP BY m.exp_id, m.dec_run_id, m.item_id
+    HAVING SUM(
+        CASE
+            WHEN NULLIF(TRIM(CAST(m.dec_pass_id AS TEXT)), '') IS NOT NULL THEN 1
+            ELSE 0
+        END
+    ) > 0
+)
+SELECT
+        m.dec_run_id,
+        m.item_id,
+        m.count_used_for_consensus
+FROM metrics_view_run_cluster_at_decoding m
+JOIN eligible_run_item e
+    ON e.exp_id = m.exp_id
+   AND e.dec_run_id = m.dec_run_id
+   AND e.item_id = m.item_id
+ORDER BY m.dec_run_id ASC, m.item_id ASC
+"""
 
 ITEM_ID_NAME_MAP = {
     0: "JPEG DNA reference",
     1: "JPEG DNA delta G",
-}
-
-
-# ---- DATA SPECS ----
-
-EXPECTED_COLUMN_NAMES_IN_THE_CSV = [
-    "label",
-    "dec_run_id",
-    "item_id",
-    "cluster_id",
-    "count_used_for_consensus",
-]
-
-LABELS_NAME_MAP = {
-    "barcode01_agilent_alignment_decoding": "Read pool from supplier 1 (Agilent)"
 }
 
 # ---- OUTPUT PATH ----
@@ -40,7 +57,7 @@ OUTPUT_PATH_SVG = "../plots/cluster_size_distribution_at_decoding.svg"
 
 FIGURE_TITLE = "Cluster size distributions for items JPEG DNA and JPEG DNA delta G over multiple runs"
 
-FIGURE_DESCRIPTION = f"Average cluster size distribution at decoding over all runs of label {'barcode01_agilent_alignment_decoding'}."
+FIGURE_DESCRIPTION = f"Average cluster size distribution at decoding over all runs of label {RUN_LABEL}."
 
 PLOT_NAME_MAP = {
     "cluster_size_distribution": "Cluster size distribution (average over the runs with standard deviation)",
@@ -84,6 +101,7 @@ PLOT_STYLE_MAP = {
 #### CODE ####
 ##############
 
+import sqlite3
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -92,12 +110,6 @@ import matplotlib.pyplot as plt
 def _resolve_path_from_script(relative_path: Path) -> Path:
     script_dir = Path(__file__).resolve().parent
     return (script_dir / relative_path).resolve()
-
-
-def _validate_columns(df: pd.DataFrame, expected_columns: list[str]) -> None:
-    missing_columns = [column for column in expected_columns if column not in df.columns]
-    if missing_columns:
-        raise ValueError(f"Missing expected columns in CSV: {missing_columns}")
 
 
 def _compute_distribution_stats(
@@ -160,19 +172,24 @@ def _compute_distribution_stats(
 
 
 def main() -> None:
-    data_path = _resolve_path_from_script(DATA_PATH)
+    db_path = _resolve_path_from_script(Path(DB_PATH))
     output_path_png = _resolve_path_from_script(Path(OUTPUT_PATH_PNG))
     output_path_svg = _resolve_path_from_script(Path(OUTPUT_PATH_SVG))
 
-    df = pd.read_csv(data_path)
-    _validate_columns(df, EXPECTED_COLUMN_NAMES_IN_THE_CSV)
+    if not ITEM_IDS_TO_PLOT:
+        raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
 
-    selected_labels = set(LABELS_NAME_MAP.keys())
-    df = df[df["label"].isin(selected_labels)]
+    item_placeholders = ",".join(["?"] * len(ITEM_IDS_TO_PLOT))
+    query = SQL_QUERY.format(item_placeholders=item_placeholders)
+    query_params = [RUN_LABEL, *ITEM_IDS_TO_PLOT]
+
+    with sqlite3.connect(db_path) as conn:
+        df = pd.read_sql_query(query, conn, params=query_params)
+
     df = df[df["item_id"].isin(ITEM_ID_NAME_MAP.keys())]
 
     if df.empty:
-        raise ValueError("No data available after filtering by label and item_id.")
+        raise ValueError("No data returned by SQL query. Check RUN_LABEL and ITEM_IDS_TO_PLOT.")
 
     cluster_sizes, mean_by_item, std_by_item, avg_coverage_by_item = _compute_distribution_stats(df)
 
