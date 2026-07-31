@@ -22,8 +22,8 @@ decoding_settings:
 
   input_settings:
     name: read_folder
-    read_folder_path: input_data/synthesis_bench/reads/progressive_decoding_wetlab_reads/barcode01_agilent
-    move_reads_to: input_data/synthesis_bench/reads/progressive_decoding_wetlab_reads/barcode01_agilent_processed
+    read_folder_path: /home/remi-moreau/Documents/3_STAGE_RECHERCHE/5_DATA/2026-06_wetlab_real-time-decoding/all_reads/barcode01_agilent/barcode01_agilent_part_1
+    move_reads_to: /home/remi-moreau/Documents/3_STAGE_RECHERCHE/5_DATA/2026-06_wetlab_real-time-decoding/all_reads/barcode01_agilent/barcode01_agilent_part_1_processed
     # IMPORTANT: you MUST add the move_reads_to parameter if you 
     # want to realize a multi run decoding (loop >= 2). Otherwise,
     # the same reads will be decoded again and again because dspl
@@ -42,7 +42,7 @@ decoding_settings:
 
   multi_pass_settings:
     name: MULTI_PASS # Replace with "SINGLE_PASS" to have single pass behavior (you must also set watch to false in that case)
-    watch: false
+    watch: true
     granular: false
     time_limit: inf
     pass_limit: inf
