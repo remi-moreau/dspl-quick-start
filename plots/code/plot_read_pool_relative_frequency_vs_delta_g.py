@@ -17,75 +17,67 @@ MIN_POINTS_PER_BIN = 2
 
 DISPLAY_LIN_REG = True
 
-SQL_QUERY = """
-WITH read_pool_scope AS (
+# ---- PERFORMANCE ----
+
+SQLITE_CACHE_SIZE_KIB = 262144
+SQLITE_TEMP_STORE = "MEMORY"
+FORCE_READ_POOL_INDEX = True
+
+READ_POOL_INDEX_NAME = "idx_read_exp_pool_fastq_pos"
+
+SQL_QUERY_TOTAL_READS_PER_ITEM = """
+SELECT
+    r.item_id,
+    COUNT(*) AS n_reads_item_total
+FROM read r {read_index_hint}
+WHERE r.exp_id = ?
+  AND r.read_pool_id = ?
+  AND r.item_id IN ({item_placeholders})
+GROUP BY r.item_id
+"""
+
+SQL_QUERY_ALIGNED_REF_COUNTS_WITH_DELTA_G = """
+WITH aligned_ref_counts AS (
     SELECT
-            r.exp_id,
-            r.read_pool_id,
-            r.enc_run_id,
-            r.item_id,
-            r.region_id,
-            r.position_id
-    FROM read r
+        r.exp_id,
+        r.enc_run_id,
+        r.item_id,
+        r.region_id,
+        r.position_id,
+        COUNT(*) AS n_reads_on_ref
+    FROM read r {read_index_hint}
     WHERE r.exp_id = ?
       AND r.read_pool_id = ?
       AND r.item_id IN ({item_placeholders})
-),
-item_totals AS (
-    SELECT
-            exp_id,
-            read_pool_id,
-            item_id,
-            COUNT(*) AS n_reads_item_total
-    FROM read_pool_scope
-    GROUP BY exp_id, read_pool_id, item_id
-),
-aligned_ref_counts AS (
-    SELECT
-            exp_id,
-            read_pool_id,
-            enc_run_id,
-            item_id,
-            region_id,
-            position_id,
-            COUNT(*) AS n_reads_on_ref
-    FROM read_pool_scope
-    WHERE enc_run_id IS NOT NULL
-      AND region_id IS NOT NULL
-      AND position_id IS NOT NULL
-    GROUP BY exp_id, read_pool_id, enc_run_id, item_id, region_id, position_id
-),
-ref_with_delta_g AS (
-    SELECT
-            a.item_id,
-            a.region_id,
-            a.position_id,
-            ep.delta_g,
-            a.n_reads_on_ref,
-            t.n_reads_item_total
-    FROM aligned_ref_counts a
-    JOIN item_totals t
-      ON t.exp_id = a.exp_id
-     AND t.read_pool_id = a.read_pool_id
-     AND t.item_id = a.item_id
-    JOIN encoded_payload ep
-      ON ep.exp_id = a.exp_id
-     AND ep.enc_run_id = a.enc_run_id
-     AND ep.item_id = a.item_id
-     AND ep.region_id = a.region_id
-     AND ep.position_id = a.position_id
+      AND r.enc_run_id IS NOT NULL
+      AND r.region_id IS NOT NULL
+      AND r.position_id IS NOT NULL
+    GROUP BY r.exp_id, r.enc_run_id, r.item_id, r.region_id, r.position_id
 )
 SELECT
-        item_id,
-        region_id,
-        position_id,
-        delta_g,
-        n_reads_on_ref,
-        n_reads_item_total,
-        (1.0 * n_reads_on_ref) / NULLIF(n_reads_item_total, 0) AS relative_frequency
-FROM ref_with_delta_g
-WHERE delta_g IS NOT NULL
-ORDER BY item_id ASC, region_id ASC, position_id ASC
+    a.item_id,
+    a.region_id,
+    a.position_id,
+    ep.delta_g,
+    a.n_reads_on_ref
+FROM aligned_ref_counts a
+JOIN encoded_payload ep
+  ON ep.exp_id = a.exp_id
+ AND ep.enc_run_id = a.enc_run_id
+ AND ep.item_id = a.item_id
+ AND ep.region_id = a.region_id
+ AND ep.position_id = a.position_id
+WHERE ep.delta_g IS NOT NULL
+ORDER BY a.item_id ASC, a.region_id ASC, a.position_id ASC
+"""
+
+SQL_QUERY_READ_POOL_VOLUMETRY = """
+SELECT
+                COUNT(*) AS n_reads_total,
+                COUNT(DISTINCT fastq_index) AS n_fastq
+FROM read
+WHERE exp_id = ?
+    AND read_pool_id = ?
 """
 
 ITEM_ID_NAME_MAP = {
@@ -102,7 +94,7 @@ OUTPUT_PATH_SVG = "../plots/read_pool_relative_frequency_vs_delta_g.svg"
 
 FIGURE_TITLE = "Relative reference frequency in read pool against delta G"
 
-FIGURE_DESCRIPTION = (
+FIGURE_DESCRIPTION_BASE = (
     f"Read pool {READ_POOL_ID} (exp_id={EXP_ID}): per-reference relative frequency "
     "(occurrence count / total reads in pool for the item) against delta G."
 )
@@ -166,6 +158,14 @@ def _resolve_path_from_script(relative_path: Path) -> Path:
     return (script_dir / relative_path).resolve()
 
 
+def _open_read_connection(db_path: Path) -> sqlite3.Connection:
+    # Read-only URI + memory temp store improve large analytical scans.
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    conn.execute(f"PRAGMA cache_size = {-int(SQLITE_CACHE_SIZE_KIB)}")
+    conn.execute(f"PRAGMA temp_store = {SQLITE_TEMP_STORE}")
+    return conn
+
+
 def main() -> None:
     db_path = _resolve_path_from_script(Path(DB_PATH))
     output_path_png = _resolve_path_from_script(Path(OUTPUT_PATH_PNG))
@@ -175,18 +175,45 @@ def main() -> None:
         raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
 
     item_placeholders = ",".join(["?"] * len(ITEM_IDS_TO_PLOT))
-    query = SQL_QUERY.format(item_placeholders=item_placeholders)
+    read_index_hint = f"INDEXED BY {READ_POOL_INDEX_NAME}" if FORCE_READ_POOL_INDEX else ""
+
+    query_totals = SQL_QUERY_TOTAL_READS_PER_ITEM.format(
+        item_placeholders=item_placeholders,
+        read_index_hint=read_index_hint,
+    )
+    query_aligned = SQL_QUERY_ALIGNED_REF_COUNTS_WITH_DELTA_G.format(
+        item_placeholders=item_placeholders,
+        read_index_hint=read_index_hint,
+    )
     query_params = [EXP_ID, READ_POOL_ID, *ITEM_IDS_TO_PLOT]
 
-    with sqlite3.connect(db_path) as conn:
-        df = pd.read_sql_query(query, conn, params=query_params)
+    with _open_read_connection(db_path) as conn:
+        totals_df = pd.read_sql_query(query_totals, conn, params=query_params)
+        aligned_df = pd.read_sql_query(query_aligned, conn, params=query_params)
+        volumetry_row = conn.execute(
+            SQL_QUERY_READ_POOL_VOLUMETRY,
+            (EXP_ID, READ_POOL_ID),
+        ).fetchone()
 
-    df = df[df["item_id"].isin(ITEM_ID_NAME_MAP.keys())].copy()
-
-    if df.empty:
+    if totals_df.empty or aligned_df.empty:
         raise ValueError(
             "No aligned reference data with delta_g found. Check EXP_ID, READ_POOL_ID and ITEM_IDS_TO_PLOT."
         )
+
+    n_reads_total = int(volumetry_row[0]) if volumetry_row and volumetry_row[0] is not None else 0
+    n_fastq = int(volumetry_row[1]) if volumetry_row and volumetry_row[1] is not None else 0
+    figure_description = (
+        f"{FIGURE_DESCRIPTION_BASE} "
+        f"Read pool volumetry: reads={n_reads_total}, fastq={n_fastq}."
+    )
+
+    df = aligned_df.merge(totals_df, on="item_id", how="inner")
+    df["relative_frequency"] = (
+        pd.to_numeric(df["n_reads_on_ref"], errors="coerce")
+        / pd.to_numeric(df["n_reads_item_total"], errors="coerce")
+    )
+
+    df = df[df["item_id"].isin(ITEM_ID_NAME_MAP.keys())].copy()
 
     df["delta_g"] = pd.to_numeric(df["delta_g"], errors="coerce")
     df["relative_frequency"] = pd.to_numeric(df["relative_frequency"], errors="coerce")
@@ -317,7 +344,7 @@ def main() -> None:
         ax.grid(True, alpha=0.25, linestyle="--")
 
     fig.suptitle(FIGURE_TITLE, fontsize=16, y=0.985)
-    fig.text(0.5, 0.955, FIGURE_DESCRIPTION, ha="center", va="top", wrap=True, fontsize=11)
+    fig.text(0.5, 0.955, figure_description, ha="center", va="top", wrap=True, fontsize=11)
     fig.tight_layout(rect=(0.03, 0.04, 0.97, 0.92))
 
     plt.show()

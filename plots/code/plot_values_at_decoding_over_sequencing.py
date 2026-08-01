@@ -9,8 +9,11 @@ from pathlib import Path
 DB_PATH = "../../database/dspl.db"
 
 RUN_LABEL = "barcode01_agilent_alignment_decoding"
+#RUN_LABEL = "test_label"
 
 ITEM_IDS_TO_PLOT = [0, 1]
+
+DISPLAY_METRIC_MEANS = True
 
 SQL_QUERY = """
 SELECT
@@ -30,6 +33,15 @@ WHERE l.label = ?
 ORDER BY m.item_id ASC, m.dec_run_id ASC
 """
 
+SQL_QUERY_LABEL_RUNS_TOTAL = """
+SELECT COUNT(*) AS n_runs_total
+FROM (
+    SELECT DISTINCT exp_id, dec_run_id
+    FROM decoding_run_label_record
+    WHERE label = ?
+)
+"""
+
 ITEM_ID_NAME_MAP = {
     0: "JPEG DNA reference",
     1: "JPEG DNA delta G",
@@ -44,7 +56,7 @@ OUTPUT_PATH_SVG = "../plots/values_at_decoding_over_sequencing.svg"
 
 FIGURE_TITLE = "Metrics at decoding over sequencing"
 
-FIGURE_DESCRIPTION = "Different metrics at decoding over sequencing. "\
+FIGURE_DESCRIPTION_BASE = "Different metrics at decoding over sequencing. "\
     + "The X axis is the number of the considered run, which increases"\
     + " with sequencing time."
 
@@ -100,7 +112,7 @@ PLOT_STYLE_MAP = {
         "marker": "D",
         "markersize": 5.5,
     },
-    "coverage_mean_marker": {
+    "metric_mean_marker": {
         "linestyle": "--",
         "linewidth": 1.8,
         "alpha": 0.9,
@@ -140,20 +152,21 @@ def main() -> None:
 
     with sqlite3.connect(db_path) as conn:
         df = pd.read_sql_query(query, conn, params=query_params)
+        n_runs_total = int(
+            conn.execute(SQL_QUERY_LABEL_RUNS_TOTAL, (RUN_LABEL,)).fetchone()[0]
+        )
 
     if df.empty:
         raise ValueError("No data returned by SQL query. Check RUN_LABEL and ITEM_IDS_TO_PLOT.")
 
+    n_runs_displayed = int(df["dec_run_id"].nunique())
+    figure_description = (
+        f"{FIGURE_DESCRIPTION_BASE} "
+        f"Label '{RUN_LABEL}': decoding runs studied={n_runs_total}, displayed={n_runs_displayed}."
+    )
+
     for column in METRIC_COLUMN_MAP.values():
         df[column] = pd.to_numeric(df[column], errors="coerce")
-
-    average_coverage_by_item = {
-        item_id: float(
-            df[df["item_id"] == item_id]["coverage_at_decoding"].mean()
-        )
-        for item_id in ITEM_ID_NAME_MAP
-        if not df[df["item_id"] == item_id]["coverage_at_decoding"].dropna().empty
-    }
 
     # Convert ratio to percent and sequencing duration from seconds to minutes.
     df["perfectly_decoded_payload_ratio_at_decoding"] = (
@@ -162,6 +175,17 @@ def main() -> None:
     df["estimated_sequencing_duration_at_decoding"] = (
         df["estimated_sequencing_duration_at_decoding"] / 60.0
     )
+
+    # Means are computed after unit conversions so marker values match displayed curves.
+    average_by_metric_by_item: dict[str, dict[int, float]] = {}
+    for metric_key, metric_column in METRIC_COLUMN_MAP.items():
+        metric_means: dict[int, float] = {}
+        for item_id in ITEM_ID_NAME_MAP:
+            item_values = df[df["item_id"] == item_id][metric_column].dropna()
+            if item_values.empty:
+                continue
+            metric_means[item_id] = float(item_values.mean())
+        average_by_metric_by_item[metric_key] = metric_means
 
     fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(15, 10))
     axes_flat = axes.flatten()
@@ -188,16 +212,16 @@ def main() -> None:
                 **style,
             )
 
-        if metric_key == "coverage":
-            marker_style = PLOT_STYLE_MAP["coverage_mean_marker"]
-            for item_id, avg_cov in average_coverage_by_item.items():
+        if DISPLAY_METRIC_MEANS:
+            marker_style = PLOT_STYLE_MAP["metric_mean_marker"]
+            for item_id, mean_value in average_by_metric_by_item.get(metric_key, {}).items():
                 ax.axhline(
-                    y=avg_cov,
+                    y=mean_value,
                     color=ITEM_ID_COLOR_MAP.get(item_id),
                     linestyle=marker_style["linestyle"],
                     linewidth=marker_style["linewidth"],
                     alpha=marker_style["alpha"],
-                    label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item {item_id}')} mean={avg_cov:.2f}",
+                    label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item {item_id}')} mean={mean_value:.2f}",
                 )
 
         ax.set_title(PLOT_NAME_MAP[metric_key])
@@ -210,7 +234,7 @@ def main() -> None:
     fig.text(
         0.5,
         0.945,
-        FIGURE_DESCRIPTION,
+        figure_description,
         ha="center",
         va="top",
         fontsize=10,

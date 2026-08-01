@@ -8,10 +8,14 @@ from pathlib import Path
 DB_PATH = "../../database/dspl.db"
 
 RUN_LABEL = "barcode01_agilent_alignment_decoding"
+#RUN_LABEL = "test_label"
 
 ITEM_IDS_TO_PLOT = [0, 1]
 
-MIN_PERFECT_DECODED_RATIO = 0.5
+# Exclusion rule for the second panel:
+# a reference is excluded when its percentage of zero-decoding runs is >= this threshold.
+# Example: 50 means "exclude references with at least 50% zero runs".
+MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION = 50
 
 VISUAL_INFINITY_FACTOR = 1.08
 
@@ -51,6 +55,15 @@ JOIN eligible_run_item e
 ORDER BY m.dec_run_id ASC, m.item_id ASC
 """
 
+SQL_QUERY_LABEL_RUNS_TOTAL = """
+SELECT COUNT(*) AS n_runs_total
+FROM (
+    SELECT DISTINCT exp_id, dec_run_id
+    FROM decoding_run_label_record
+    WHERE label = ?
+)
+"""
+
 ITEM_ID_NAME_MAP = {
     0: "JPEG DNA reference",
     1: "JPEG DNA delta G",
@@ -65,7 +78,7 @@ OUTPUT_PATH_SVG = "../plots/cluster_size_distribution_at_decoding.svg"
 
 FIGURE_TITLE = "Cluster size distributions for items JPEG DNA and JPEG DNA delta G over multiple runs"
 
-FIGURE_DESCRIPTION = (
+FIGURE_DESCRIPTION_BASE = (
     f"Average normalized cluster size distribution at decoding over all runs of label {RUN_LABEL}. "
     "For each item, $\\mu_{\\text{cov}}$ and $\\sigma_{\\text{cov}}$ are computed from the aggregated "
     "inter-run relative-frequency distribution over coverage bins."
@@ -224,9 +237,14 @@ def _compute_first_decoding_reference_stats(
         )
     )
     reference_level_df["zero_ratio"] = reference_level_df["n_runs_zero"] / reference_level_df["n_runs_total"]
+    reference_level_df["zero_ratio_percent"] = 100.0 * reference_level_df["zero_ratio"]
 
-    included_df = reference_level_df[reference_level_df["zero_ratio"] < MIN_PERFECT_DECODED_RATIO].copy()
-    excluded_df = reference_level_df[reference_level_df["zero_ratio"] >= MIN_PERFECT_DECODED_RATIO].copy()
+    included_df = reference_level_df[
+        reference_level_df["zero_ratio_percent"] < MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION
+    ].copy()
+    excluded_df = reference_level_df[
+        reference_level_df["zero_ratio_percent"] >= MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION
+    ].copy()
 
     return reference_level_df, included_df, excluded_df
 
@@ -245,11 +263,20 @@ def main() -> None:
 
     with sqlite3.connect(db_path) as conn:
         df = pd.read_sql_query(query, conn, params=query_params)
+        n_runs_total = int(
+            conn.execute(SQL_QUERY_LABEL_RUNS_TOTAL, (RUN_LABEL,)).fetchone()[0]
+        )
 
     df = df[df["item_id"].isin(ITEM_ID_NAME_MAP.keys())]
 
     if df.empty:
         raise ValueError("No data returned by SQL query. Check RUN_LABEL and ITEM_IDS_TO_PLOT.")
+
+    n_runs_displayed = int(df["dec_run_id"].nunique())
+    figure_description = (
+        f"{FIGURE_DESCRIPTION_BASE} "
+        f"Label '{RUN_LABEL}': decoding runs studied={n_runs_total}, displayed={n_runs_displayed}."
+    )
 
     cluster_sizes, mean_by_item, se_by_item, coverage_moments_by_item = _compute_distribution_stats(df)
     reference_level_df, included_reference_df, excluded_reference_df = _compute_first_decoding_reference_stats(df)
@@ -318,6 +345,8 @@ def main() -> None:
         item_included = included_reference_df[included_reference_df["item_id"] == item_id].copy()
         item_excluded = excluded_reference_df[excluded_reference_df["item_id"] == item_id].copy()
 
+        if not item_included.empty:
+            item_included = item_included[np.isfinite(item_included["mean_positive_count_at_first_decoding"])].copy()
         if not item_included.empty:
             item_included["bin_upper"] = (
                 np.ceil(item_included["mean_positive_count_at_first_decoding"]).astype(int)
@@ -396,7 +425,7 @@ def main() -> None:
     ax_first_decoding.legend()
 
     fig.suptitle(FIGURE_TITLE, fontsize=16, y=0.985)
-    fig.text(0.5, 0.94, FIGURE_DESCRIPTION, ha="center", va="top", wrap=True, fontsize=11)
+    fig.text(0.5, 0.94, figure_description, ha="center", va="top", wrap=True, fontsize=11)
     fig.tight_layout(rect=(0.03, 0.05, 0.97, 0.88))
 
     plt.show()

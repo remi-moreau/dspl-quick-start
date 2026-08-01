@@ -8,13 +8,17 @@ from pathlib import Path
 DB_PATH = "../../database/dspl.db"
 
 RUN_LABEL = "barcode01_agilent_alignment_decoding"
+#RUN_LABEL = "test_label"
 
 ITEM_IDS_TO_PLOT = [0, 1]
 
 #USE_SINGLE_RUN_ID_INSTEAD = "decoding_1"  # None | str
 USE_SINGLE_RUN_ID_INSTEAD = None
 
-MIN_PERFECT_DECODED_RATIO = 0.5
+# Exclusion rule:
+# a reference is excluded when its zero-decoding run ratio is >= this threshold.
+# Ratio scale is [0, 1]. Example: 0.5 means "exclude references with at least 50% zero runs".
+MAX_ZERO_RUN_RATIO_FOR_INCLUSION = 0.5
 
 VISUAL_INFINITY_FACTOR = 1.08
 
@@ -47,6 +51,7 @@ WITH eligible_run_item AS (
     ) > 0
 )
 SELECT
+    m.dec_run_id,
         m.item_id,
         m.region_id,
         m.position_id,
@@ -59,6 +64,15 @@ JOIN eligible_run_item e
    AND e.dec_run_id = m.dec_run_id
    AND e.item_id = m.item_id
 ORDER BY m.item_id ASC, m.region_id ASC, m.position_id ASC
+"""
+
+SQL_QUERY_LABEL_RUNS_TOTAL = """
+SELECT COUNT(*) AS n_runs_total
+FROM (
+    SELECT DISTINCT exp_id, dec_run_id
+    FROM decoding_run_label_record
+    WHERE label = ?
+)
 """
 
 ITEM_ID_NAME_MAP = {
@@ -78,13 +92,13 @@ OUTPUT_PATH_FIG_DROPOUT_SVG = "../plots/delta_g_effect_on_dropout.svg"
 
 FIGURE_COVERAGE_TITLE = "Cluster size at decoding against delta G."
 
-FIGURE_COVERAGE_DESCRIPTION = (
+FIGURE_COVERAGE_DESCRIPTION_BASE = (
     f"Cluster size at decoding against delta G, for label {RUN_LABEL}."
 )
 
 FIGURE_DROPOUT_TITLE = "Delta G effect on dropout probability."
 
-FIGURE_DROPOUT_DESCRIPTION = (
+FIGURE_DROPOUT_DESCRIPTION_BASE = (
     f"Excluded-reference probability over delta G bins, for label {RUN_LABEL}."
 )
 
@@ -177,11 +191,21 @@ def main() -> None:
 
     with sqlite3.connect(db_path) as conn:
         df = pd.read_sql_query(query, conn, params=query_params)
+        n_runs_total = int(
+            conn.execute(SQL_QUERY_LABEL_RUNS_TOTAL, (RUN_LABEL,)).fetchone()[0]
+        )
 
     df = df[df["item_id"].isin(ITEM_ID_NAME_MAP.keys())].copy()
 
     if df.empty:
         raise ValueError("No data returned by SQL query. Check RUN_LABEL and ITEM_IDS_TO_PLOT.")
+
+    n_runs_displayed = int(df["dec_run_id"].nunique())
+    volumetry_suffix = (
+        f" Label '{RUN_LABEL}': decoding runs studied={n_runs_total}, displayed={n_runs_displayed}."
+    )
+    figure_coverage_description = FIGURE_COVERAGE_DESCRIPTION_BASE + volumetry_suffix
+    figure_dropout_description = FIGURE_DROPOUT_DESCRIPTION_BASE + volumetry_suffix
 
     df["delta_g"] = pd.to_numeric(df["delta_g"], errors="coerce")
     df["count_at_first_decoding"] = (
@@ -207,10 +231,10 @@ def main() -> None:
     )
 
     accepted_reference_level_df = reference_level_df[
-        reference_level_df["zero_ratio"] < MIN_PERFECT_DECODED_RATIO
+        reference_level_df["zero_ratio"] < MAX_ZERO_RUN_RATIO_FOR_INCLUSION
     ].copy()
     rejected_reference_level_df = reference_level_df[
-        reference_level_df["zero_ratio"] >= MIN_PERFECT_DECODED_RATIO
+        reference_level_df["zero_ratio"] >= MAX_ZERO_RUN_RATIO_FOR_INCLUSION
     ].copy()
 
     rejected_reference_level_df["item_name"] = rejected_reference_level_df["item_id"].map(
@@ -224,7 +248,7 @@ def main() -> None:
         "Rejected references summary:"
         f" total={len(rejected_reference_level_df)},"
         f" accepted={len(accepted_reference_level_df)},"
-        f" threshold={MIN_PERFECT_DECODED_RATIO:.2f}"
+        f" threshold={MAX_ZERO_RUN_RATIO_FOR_INCLUSION:.2f}"
     )
     if not rejected_reference_level_df.empty:
         for item_id in sorted(ITEM_ID_NAME_MAP.keys()):
@@ -348,7 +372,7 @@ def main() -> None:
     fig_coverage.text(
         0.5,
         0.948,
-        FIGURE_COVERAGE_DESCRIPTION,
+        figure_coverage_description,
         ha="center",
         va="top",
         wrap=True,
@@ -490,7 +514,7 @@ def main() -> None:
     fig_dropout.text(
         0.5,
         0.955,
-        FIGURE_DROPOUT_DESCRIPTION,
+        figure_dropout_description,
         ha="center",
         va="top",
         wrap=True,
