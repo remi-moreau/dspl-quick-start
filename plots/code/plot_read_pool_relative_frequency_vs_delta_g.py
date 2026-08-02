@@ -10,7 +10,7 @@ DB_PATH = "../../database/barcode01_agilent.db"
 EXP_ID = "synthesis_bench"
 READ_POOL_ID = "barcode01_agilent"
 
-ITEM_IDS_TO_PLOT = [0, 1]
+ITEM_IDS_TO_PLOT = [0, 1, 2]
 
 DELTA_G_PRECISION = 1.0
 MIN_POINTS_PER_BIN = 2
@@ -83,6 +83,7 @@ WHERE exp_id = ?
 ITEM_ID_NAME_MAP = {
     0: "JPEGDNA-reference",
     1: "JPEGDNA-delta-G",
+    2: "Motif-paircode"
 }
 
 # ---- OUTPUT PATH ----
