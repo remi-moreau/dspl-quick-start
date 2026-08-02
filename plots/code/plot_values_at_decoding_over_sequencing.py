@@ -6,7 +6,7 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/dspl.db"
+DB_PATH = "../../database/barcode01_agilent.db"
 
 RUN_LABEL = "barcode01_agilent_alignment_decoding"
 #RUN_LABEL = "test_label"
@@ -43,8 +43,8 @@ FROM (
 """
 
 ITEM_ID_NAME_MAP = {
-    0: "JPEG DNA reference",
-    1: "JPEG DNA delta G",
+    0: "JPEGDNA-reference",
+    1: "JPEGDNA-delta-G",
 }
 
 # ---- OUTPUT PATH ----
@@ -54,17 +54,16 @@ OUTPUT_PATH_SVG = "../plots/values_at_decoding_over_sequencing.svg"
 
 # ---- NAMES ----
 
-FIGURE_TITLE = "Metrics at decoding over sequencing"
+FIGURE_TITLE = "Metrics at image decoding over sequencing (successive runs)"
 
-FIGURE_DESCRIPTION_BASE = "Different metrics at decoding over sequencing. "\
-    + "The X axis is the number of the considered run, which increases"\
-    + " with sequencing time."
+FIGURE_DESCRIPTION_BASE = "Different image decoding-level metrics over sequencing. "\
+    + "The X axis is the numbers of the successive runs. A new run starts as soon as the previous one succeed."\
 
 PLOT_NAME_MAP = {
-    "coverage": "Average coverage at decoding over sequencing",
-    "hamming_distance_normalized_at_decoding": "Normalized Hamming distance at decoding", 
-    "perfectly_decoded_payload_ratio_at_decoding": "Perfectly decoded payload ratio at decoding",
-    "estimated_sequencing_duration_at_decoding": "Sequencing duration of the decoding run",
+    "coverage": "Average coverage at image decoding",
+    "hamming_distance_normalized_at_decoding": "Normalized Hamming distance at image decoding", 
+    "perfectly_decoded_payload_ratio_at_decoding": "Perfectly decoded payload ratio at image decoding",
+    "estimated_sequencing_duration_at_decoding": "Sequencing duration of the decoding run at image decoding",
 }
 
 X_AXIS_NAME_MAP = {
@@ -72,8 +71,8 @@ X_AXIS_NAME_MAP = {
 }
 
 Y_AXIS_NAME_MAP = {
-    "coverage": "Norma. avg. coverage",
-    "hamming_distance_normalized_at_decoding": "Norm. Hamming distance", 
+    "coverage": "Normalized average coverage",
+    "hamming_distance_normalized_at_decoding": "Normalized Hamming distance", 
     "perfectly_decoded_payload_ratio_at_decoding": "Perfectly decoded payload ratio (%)",
     "estimated_sequencing_duration_at_decoding": "Sequencing duration (minutes)",
 }
@@ -90,27 +89,27 @@ ITEM_ID_COLOR_MAP = {
 PLOT_STYLE_MAP = {
     "coverage": {
         "linestyle": "-",
-        "linewidth": 2.2,
+        "linewidth": 1.8,
         "marker": "o",
-        "markersize": 6,
+        "markersize": 4,
     },
     "hamming_distance_normalized_at_decoding": {
-        "linestyle": "--",
-        "linewidth": 2.0,
-        "marker": "s",
-        "markersize": 5.5,
+        "linestyle": "-",
+        "linewidth": 1.8,
+        "marker": "o",
+        "markersize": 4,
     },
     "perfectly_decoded_payload_ratio_at_decoding": {
-        "linestyle": "-.",
-        "linewidth": 2.0,
-        "marker": "^",
-        "markersize": 6,
+        "linestyle": "-",
+        "linewidth": 1.8,
+        "marker": "o",
+        "markersize": 4,
     },
     "estimated_sequencing_duration_at_decoding": {
-        "linestyle": ":",
-        "linewidth": 2.2,
-        "marker": "D",
-        "markersize": 5.5,
+        "linestyle": "-",
+        "linewidth": 1.8,
+        "marker": "o",
+        "markersize": 4,
     },
     "metric_mean_marker": {
         "linestyle": "--",

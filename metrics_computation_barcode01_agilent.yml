@@ -1,0 +1,7 @@
+exp_id: synthesis_bench
+
+database: database/barcode01_agilent.db
+
+metrics_computation_settings:
+  force: false
+  aligner: IDENTITY

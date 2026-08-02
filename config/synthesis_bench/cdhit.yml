@@ -1,0 +1,9 @@
+decoding_settings:
+  default_inner_decoding_settings:
+    clustering_settings:
+      name: CD_HIT
+      identity: 0.80
+      word_size: 5
+      threads: null
+      memory: null
+      tmp_prefix: null

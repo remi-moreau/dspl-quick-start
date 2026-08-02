@@ -5,7 +5,7 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/dspl.db"
+DB_PATH = "../../database/barcode01_agilent.db"
 
 RUN_LABEL = "barcode01_agilent_alignment_decoding"
 #RUN_LABEL = "test_label"
@@ -76,8 +76,8 @@ FROM (
 """
 
 ITEM_ID_NAME_MAP = {
-    0: "JPEG DNA reference",
-    1: "JPEG DNA delta G",
+    0: "JPEGDNA-reference",
+    1: "JPEGDNA-delta-G",
 }
 
 # ---- OUTPUT PATH ----
@@ -90,22 +90,28 @@ OUTPUT_PATH_FIG_DROPOUT_SVG = "../plots/delta_g_effect_on_dropout.svg"
 
 # ---- NAMES ----
 
-FIGURE_COVERAGE_TITLE = "Cluster size at decoding against delta G."
+FIGURE_COVERAGE_TITLE = "Reference Coverage at reference decoding against delta G."
 
 FIGURE_COVERAGE_DESCRIPTION_BASE = (
-    f"Cluster size at decoding against delta G, for label {RUN_LABEL}."
+    #f"Reference Coverage at reference decoding against delta G.\n"
+    "$\\mathbf{DEFINITION}$: a reference is said to be $\\mathbf{dropped-out}$ iff it is perfectly decoded during less than "
+    f"{MAX_ZERO_RUN_RATIO_FOR_INCLUSION*100}% of the decoding runs."
+    "Otherwise, it is said to be $\\mathbf{included}$.\n"
 )
 
-FIGURE_DROPOUT_TITLE = "Delta G effect on dropout probability."
+FIGURE_DROPOUT_TITLE = "Delta G effect on Dropout Probability."
 
 FIGURE_DROPOUT_DESCRIPTION_BASE = (
-    f"Excluded-reference probability over delta G bins, for label {RUN_LABEL}."
+    "$\\mathbf{DEFINITION}$: a reference is said to be $\\mathbf{dropped-out}$ iff it is perfectly decoded during less than "
+    f"{MAX_ZERO_RUN_RATIO_FOR_INCLUSION*100}% of the decoding runs."
+    "Otherwise, it is said to be $\\mathbf{included}$.\n"
+
 )
 
 PLOT_NAME_MAP = {
-    "delta_g_correlation": "Coverage at first correct decoding against delta G (zeros shown at infinity)",
-    "delta_g_binned_regression": "Binned mean positive coverage over delta G intervals (included references)",
-    "delta_g_excluded_ratio": "Excluded references ratio by delta G bin",
+    "delta_g_correlation": "Reference Coverage at first perfect decoding against delta G ($\\mathbf{dropped-out}$ references shown at infinity on the top)",
+    "delta_g_binned_regression": "Binned mean positive coverage over delta G intervals ($\\mathbf{included}$ references)",
+    "delta_g_excluded_ratio": "$\\mathbf{Dropped-out}$ References ratio by Delta G bin",
 }
 
 X_AXIS_NAME_MAP = {
@@ -113,9 +119,9 @@ X_AXIS_NAME_MAP = {
 }
 
 Y_AXIS_NAME_MAP = {
-    "count_at_first_decoding": "Coverage at first correct decoding (mean of positive runs)",
-    "count_at_first_decoding_binned": "Mean positive coverage in bin",
-    "excluded_ratio_probability": "Probability for a reference to be excluded",
+    "count_at_first_decoding": "Reference Coverage at first correct decoding (mean over positive runs)",
+    "count_at_first_decoding_binned": "Mean coverage in bin",
+    "excluded_ratio_probability": "Probability for a reference to be $\\mathbf{dropped-out}$",
 }
 
 
@@ -290,7 +296,7 @@ def main() -> None:
                 accepted_item_df["delta_g"],
                 accepted_item_df["mean_positive_coverage"],
                 color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
-                label=f"{item_name} accepted (n={len(accepted_item_df)})",
+                label=f"{item_name} "+"$\\mathbf{included}$ references (count={len(accepted_item_df)})",
                 marker=scatter_style["marker"],
                 s=scatter_style["s"],
                 alpha=scatter_style["alpha"],
@@ -302,7 +308,7 @@ def main() -> None:
                 excluded_item_df["delta_g"],
                 np.full(len(excluded_item_df), visual_infinity_y),
                 color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
-                label=f"{item_name} excluded (n={len(excluded_item_df)})",
+                label=f"{item_name} "+"$\\mathbf{dropped\\text{-}out}$ references (count={len(excluded_item_df)})",
                 marker=excluded_scatter_style["marker"],
                 s=excluded_scatter_style["s"],
                 alpha=excluded_scatter_style["alpha"],

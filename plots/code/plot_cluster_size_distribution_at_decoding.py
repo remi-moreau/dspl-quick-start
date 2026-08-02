@@ -5,7 +5,7 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/dspl.db"
+DB_PATH = "../../database/barcode01_agilent.db"
 
 RUN_LABEL = "barcode01_agilent_alignment_decoding"
 #RUN_LABEL = "test_label"
@@ -65,8 +65,8 @@ FROM (
 """
 
 ITEM_ID_NAME_MAP = {
-    0: "JPEG DNA reference",
-    1: "JPEG DNA delta G",
+    0: "JPEGDNA-reference",
+    1: "JPEGDNA-delta-G",
 }
 
 # ---- OUTPUT PATH ----
@@ -85,18 +85,18 @@ FIGURE_DESCRIPTION_BASE = (
 )
 
 PLOT_NAME_MAP = {
-    "cluster_size_distribution": "Cluster size distribution (inter-run mean relative frequency with standard error)",
-    "cluster_size_at_first_decoding": "Cluster size at first decoding (zeros shown at infinity)",
+    "cluster_size_distribution": "Reference Coverage distribution at $\\mathbf{image\\ decoding}$ (mean over multiple runs, with standard error)",
+    "cluster_size_at_first_decoding": "Reference Coverage distribution at $\\mathbf{reference\\ decoding}$"+ f" (at infinity: references decoded during less than {MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION}% of the decoding runs)",
 }
 
 X_AXIS_NAME_MAP = {
-    "cluster_size": "Coverage (size of the cluster)",
-    "cluster_size_at_first_decoding": "Cluster size at first decoding (integer bins)",
+    "cluster_size": "Coverage (i.e. size of the reference's cluster)",
+    "cluster_size_at_first_decoding": "Coverage at $\\mathbf{reference}$ decoding (integer bins)",
 }
 
 Y_AXIS_NAME_MAP = {
-    "cluster_size_distribution": "Relative frequency at image decoding time",
-    "cluster_size_at_first_decoding": "Number of references",
+    "cluster_size_distribution": "Reference Relative Frequency at $\\mathbf{image}$ decoding (mean over multiple runs)",
+    "cluster_size_at_first_decoding": "Reference Relative Frequency at $\\mathbf{reference}$ decoding",
 }
 
 

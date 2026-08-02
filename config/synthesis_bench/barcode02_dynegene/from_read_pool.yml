@@ -1,0 +1,4 @@
+decoding_settings:
+  input_settings:
+    name: read_pool
+    read_pool_id: barcode02_dynegene

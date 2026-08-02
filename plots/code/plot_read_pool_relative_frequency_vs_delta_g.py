@@ -5,7 +5,7 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/dspl.db"
+DB_PATH = "../../database/barcode01_agilent.db"
 
 EXP_ID = "synthesis_bench"
 READ_POOL_ID = "barcode01_agilent"
@@ -81,8 +81,8 @@ WHERE exp_id = ?
 """
 
 ITEM_ID_NAME_MAP = {
-    0: "JPEG DNA reference",
-    1: "JPEG DNA delta G",
+    0: "JPEGDNA-reference",
+    1: "JPEGDNA-delta-G",
 }
 
 # ---- OUTPUT PATH ----
@@ -92,7 +92,7 @@ OUTPUT_PATH_SVG = "../plots/read_pool_relative_frequency_vs_delta_g.svg"
 
 # ---- NAMES ----
 
-FIGURE_TITLE = "Relative reference frequency in read pool against delta G"
+FIGURE_TITLE = "Relative reference frequency among wetlab reads against delta G"
 
 FIGURE_DESCRIPTION_BASE = (
     f"Read pool {READ_POOL_ID} (exp_id={EXP_ID}): per-reference relative frequency "
@@ -100,7 +100,7 @@ FIGURE_DESCRIPTION_BASE = (
 )
 
 PLOT_NAME_MAP = {
-    "scatter": "Per-reference relative frequency against delta G",
+    "scatter": "Relative frequency against delta G for each reference",
     "binned_mean": "Binned mean relative frequency over delta G intervals",
 }
 
@@ -109,7 +109,7 @@ X_AXIS_NAME_MAP = {
 }
 
 Y_AXIS_NAME_MAP = {
-    "relative_frequency": "Relative frequency in read pool",
+    "relative_frequency": "Relative frequency among reads",
     "relative_frequency_binned": "Mean relative frequency in bin",
 }
 
@@ -131,7 +131,7 @@ PLOT_STYLE_MAP = {
     },
     "lin_reg": {
         "linestyle": "-",
-        "linewidth": 2.0,
+        "linewidth": 3.0,
         "alpha": 0.95,
     },
     "binned": {
@@ -204,7 +204,7 @@ def main() -> None:
     n_fastq = int(volumetry_row[1]) if volumetry_row and volumetry_row[1] is not None else 0
     figure_description = (
         f"{FIGURE_DESCRIPTION_BASE} "
-        f"Read pool volumetry: reads={n_reads_total}, fastq={n_fastq}."
+        f"\nRead pool volumetry: reads={n_reads_total}, fastq={n_fastq}."
     )
 
     df = aligned_df.merge(totals_df, on="item_id", how="inner")
