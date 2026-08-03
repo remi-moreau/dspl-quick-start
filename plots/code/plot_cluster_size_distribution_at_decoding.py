@@ -73,6 +73,7 @@ ITEM_ID_NAME_MAP = {
 
 OUTPUT_PATH_PNG = "../plots/cluster_size_distribution_at_decoding.png"
 OUTPUT_PATH_SVG = "../plots/cluster_size_distribution_at_decoding.svg"
+OUTPUT_PATH_PDF = "../plots/cluster_size_distribution_at_decoding.pdf"
 
 # ---- NAMES ----
 
@@ -253,6 +254,7 @@ def main() -> None:
     db_path = _resolve_path_from_script(Path(DB_PATH))
     output_path_png = _resolve_path_from_script(Path(OUTPUT_PATH_PNG))
     output_path_svg = _resolve_path_from_script(Path(OUTPUT_PATH_SVG))
+    output_path_pdf = _resolve_path_from_script(Path(OUTPUT_PATH_PDF))
 
     if not ITEM_IDS_TO_PLOT:
         raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
@@ -432,8 +434,10 @@ def main() -> None:
 
     output_path_png.parent.mkdir(parents=True, exist_ok=True)
     output_path_svg.parent.mkdir(parents=True, exist_ok=True)
+    output_path_pdf.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path_png, dpi=200)
     fig.savefig(output_path_svg)
+    fig.savefig(output_path_pdf)
     plt.close(fig)
 
 

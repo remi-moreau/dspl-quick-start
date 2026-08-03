@@ -51,6 +51,7 @@ ITEM_ID_NAME_MAP = {
 
 OUTPUT_PATH_PNG = "../plots/values_at_decoding_over_sequencing.png"
 OUTPUT_PATH_SVG = "../plots/values_at_decoding_over_sequencing.svg"
+OUTPUT_PATH_PDF = "../plots/values_at_decoding_over_sequencing.pdf"
 
 # ---- NAMES ----
 
@@ -141,6 +142,7 @@ def main() -> None:
     db_path = (base_dir / DB_PATH).resolve()
     output_path_png = (base_dir / OUTPUT_PATH_PNG).resolve()
     output_path_svg = (base_dir / OUTPUT_PATH_SVG).resolve()
+    output_path_pdf = (base_dir / OUTPUT_PATH_PDF).resolve()
 
     if not ITEM_IDS_TO_PLOT:
         raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
@@ -245,9 +247,11 @@ def main() -> None:
 
     output_path_png.parent.mkdir(parents=True, exist_ok=True)
     output_path_svg.parent.mkdir(parents=True, exist_ok=True)
+    output_path_pdf.parent.mkdir(parents=True, exist_ok=True)
 
     fig.savefig(output_path_png, dpi=300, bbox_inches="tight")
     fig.savefig(output_path_svg, bbox_inches="tight")
+    fig.savefig(output_path_pdf, bbox_inches="tight")
     plt.close(fig)
 
 

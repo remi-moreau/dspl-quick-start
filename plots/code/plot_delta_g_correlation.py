@@ -84,9 +84,11 @@ ITEM_ID_NAME_MAP = {
 
 OUTPUT_PATH_FIG_COVERAGE_PNG = "../plots/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.png"
 OUTPUT_PATH_FIG_COVERAGE_SVG = "../plots/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.svg"
+OUTPUT_PATH_FIG_COVERAGE_PDF = "../plots/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.pdf"
 
 OUTPUT_PATH_FIG_DROPOUT_PNG = "../plots/delta_g_effect_on_dropout.png"
 OUTPUT_PATH_FIG_DROPOUT_SVG = "../plots/delta_g_effect_on_dropout.svg"
+OUTPUT_PATH_FIG_DROPOUT_PDF = "../plots/delta_g_effect_on_dropout.pdf"
 
 # ---- NAMES ----
 
@@ -185,8 +187,10 @@ def main() -> None:
     db_path = _resolve_path_from_script(Path(DB_PATH))
     output_path_fig_coverage_png = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_COVERAGE_PNG))
     output_path_fig_coverage_svg = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_COVERAGE_SVG))
+    output_path_fig_coverage_pdf = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_COVERAGE_PDF))
     output_path_fig_dropout_png = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_DROPOUT_PNG))
     output_path_fig_dropout_svg = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_DROPOUT_SVG))
+    output_path_fig_dropout_pdf = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_DROPOUT_PDF))
 
     if not ITEM_IDS_TO_PLOT:
         raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
@@ -390,8 +394,10 @@ def main() -> None:
 
     output_path_fig_coverage_png.parent.mkdir(parents=True, exist_ok=True)
     output_path_fig_coverage_svg.parent.mkdir(parents=True, exist_ok=True)
+    output_path_fig_coverage_pdf.parent.mkdir(parents=True, exist_ok=True)
     fig_coverage.savefig(output_path_fig_coverage_png, dpi=250)
     fig_coverage.savefig(output_path_fig_coverage_svg)
+    fig_coverage.savefig(output_path_fig_coverage_pdf)
     plt.close(fig_coverage)
 
     ratio_rows_by_item: dict[int, pd.DataFrame] = {}
@@ -532,8 +538,10 @@ def main() -> None:
 
     output_path_fig_dropout_png.parent.mkdir(parents=True, exist_ok=True)
     output_path_fig_dropout_svg.parent.mkdir(parents=True, exist_ok=True)
+    output_path_fig_dropout_pdf.parent.mkdir(parents=True, exist_ok=True)
     fig_dropout.savefig(output_path_fig_dropout_png, dpi=250)
     fig_dropout.savefig(output_path_fig_dropout_svg)
+    fig_dropout.savefig(output_path_fig_dropout_pdf)
     plt.close(fig_dropout)
 
 

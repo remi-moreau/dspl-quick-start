@@ -51,6 +51,7 @@ ITEM_ID_NAME_MAP = {
 
 OUTPUT_PATH_PNG = "../plots/decoding_run_passes.png"
 OUTPUT_PATH_SVG = "../plots/decoding_run_passes.svg"
+OUTPUT_PATH_PDF = "../plots/decoding_run_passes.pdf"
 
 # ---- NAMES ----
 
@@ -171,6 +172,7 @@ def main() -> None:
     db_path = (base_dir / DB_PATH).resolve()
     output_path_png = (_resolve_path_from_script(Path(OUTPUT_PATH_PNG))).resolve()
     output_path_svg = (_resolve_path_from_script(Path(OUTPUT_PATH_SVG))).resolve()
+    output_path_pdf = (_resolve_path_from_script(Path(OUTPUT_PATH_PDF))).resolve()
 
     if not ITEM_IDS_TO_PLOT:
         raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
@@ -299,9 +301,11 @@ def main() -> None:
 
     output_path_png.parent.mkdir(parents=True, exist_ok=True)
     output_path_svg.parent.mkdir(parents=True, exist_ok=True)
+    output_path_pdf.parent.mkdir(parents=True, exist_ok=True)
 
     fig.savefig(output_path_png, dpi=300, bbox_inches="tight")
     fig.savefig(output_path_svg, bbox_inches="tight")
+    fig.savefig(output_path_pdf, bbox_inches="tight")
     plt.close(fig)
 
 
