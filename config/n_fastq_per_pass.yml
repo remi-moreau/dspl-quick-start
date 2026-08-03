@@ -1,0 +1,12 @@
+decoding_settings:
+  multi_pass_settings:
+    name: MULTI_PASS # Replace with "SINGLE_PASS" to have single pass behavior (you must also set watch to false in that case)
+    watch: false
+    granular: false
+    time_limit: inf
+    pass_limit: inf
+    n_files_per_pass: 50
+    read_batch_size: 2500    
+    early_stop_settings:
+      name: PSNR
+      threshold: 35 

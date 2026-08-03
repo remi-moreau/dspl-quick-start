@@ -43,7 +43,7 @@ dspl run decoding decoding_barcode01_agilent.yml \
 --labels barcode01_agilent_cdhit
 ```
 
-#### Decoding with motif paircode
+#### Decoding with motif paircode (one fastq per pass)
 
 Decode all three images (including motif paircode) from the previously ingested read pool and compute metrics:
 ```bash
@@ -54,6 +54,15 @@ dspl run decoding decoding_barcode01_agilent.yml \
 --labels barcode01_agilent_alignment_with_motif_paircode
 ```
 
+#### Decoding with motif paircode (multiple fastqs per pass)
+Decode all three images (including motif paircode) from the previously ingested read pool and compute metrics, but this time with multiple fastqs per pass (see `config/multi_pass_n_fastq_per_pass.yml`):
+```bash
+dspl run decoding decoding_barcode01_agilent.yml \
+--labels barcode01_agilent_alignment_with_motif_paircode_n_fastq_per_pass \
+--override config/synthesis_bench/barcode01_agilent/from_read_pool.yml config/synthesis_bench/decode_also_motif_paircode.yml config/no_loop.yml config/n_fastq_per_pass.yml \
+&& dspl run metrics-computation metrics_computation_barcode01_agilent.yml \
+--labels barcode01_agilent_alignment_with_motif_paircode_n_fastq_per_pass
+```
 ### 1.2 `barcode02_dynegene`
 
 #### Encoding run

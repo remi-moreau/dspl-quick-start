@@ -3,3 +3,7 @@ decoding_settings:
     - 2:
         name: Bird_MOTIF_PAIRCODE
         skip: false
+        outer_decoding_settings:
+          name: MOTIF_PAIRCODE
+          motif_python_executable: /home/remi-moreau/miniconda3/envs/jpegdna_vm_py311/bin/python
+

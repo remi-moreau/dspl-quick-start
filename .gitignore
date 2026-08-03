@@ -23,3 +23,5 @@ input_data/six_images/reads/*/*.fastq.gz
 
 plots/plots/*.png
 plots/plots/*.svg
+
+tmp_*.py
