@@ -7,12 +7,12 @@ from pathlib import Path
 
 DB_PATH = "../../database/barcode01_agilent.db"
 
-DEC_RUN_ID_TO_PLOT = "decoding_164"
+DEC_RUN_ID_TO_PLOT = "decoding_167"
 
-ITEM_IDS_TO_PLOT = [0, 1, 2]
+ITEM_IDS_TO_PLOT = [2]
 
 # pass_index | coverage | n_tot_reads | estimated_sequencing_duration | run_duration
-X_AXIS_KEY = "estimated_sequencing_duration"
+X_AXIS_KEY = "coverage"
 
 FILTER_OUT_NULL_PSNR_ROWS = True
 

@@ -11,7 +11,7 @@ DB_PATH = "../../database/barcode01_agilent.db"
 RUN_LABEL = "barcode01_agilent_alignment_decoding"
 #RUN_LABEL = "test_label"
 
-ITEM_IDS_TO_PLOT = [0, 1]
+ITEM_IDS_TO_PLOT = [0]
 
 DISPLAY_METRIC_MEANS = True
 
@@ -43,7 +43,7 @@ FROM (
 """
 
 ITEM_ID_NAME_MAP = {
-    0: "JPEGDNA-reference",
+    0: "JPEGDNA",
     1: "JPEGDNA-delta-G",
 }
 

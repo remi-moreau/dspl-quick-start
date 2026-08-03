@@ -10,7 +10,7 @@ DB_PATH = "../../database/barcode01_agilent.db"
 RUN_LABEL = "barcode01_agilent_alignment_decoding"
 #RUN_LABEL = "test_label"
 
-ITEM_IDS_TO_PLOT = [0, 1]
+ITEM_IDS_TO_PLOT = [0]
 
 # Exclusion rule for the second panel:
 # a reference is excluded when its percentage of zero-decoding runs is >= this threshold.
@@ -112,7 +112,7 @@ ITEM_ID_COLOR_MAP = {
 PLOT_STYLE_MAP = {
     "cluster_size_distribution": {
         "alpha": 0.85,
-        "bar_width": 0.42,
+        "bar_width": 1.0,
         "edgecolor": "black",
         "linewidth": 0.5,
         "error_capsize": 3,
