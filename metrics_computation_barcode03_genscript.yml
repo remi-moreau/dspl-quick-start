@@ -1,6 +1,6 @@
 exp_id: synthesis_bench
 
-database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode03_genscript.db
+database: database/barcode03_genscript.db
 
 metrics_computation_settings:
   decoding_run_label: barcode03_genscript_alignment_decoding

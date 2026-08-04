@@ -69,7 +69,7 @@ dspl run decoding decoding_barcode01_agilent.yml \
 
 Create database and add encoding run
 ```bash
-dspl db add-full-encoding /media/remi-moreau/Seagate\ Expansion\ Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode02_dynegene.db \
+dspl db add-full-encoding database/barcode02_dynegene.db \
 --run output_data/synthesis_bench/encoding/full_encoding_15/ \
 --experience-id synthesis_bench \
 --delta-g-map input_data/synthesis_bench/delta_g_files/delta-g_mapping.csv
@@ -91,7 +91,7 @@ dspl run decoding decoding_barcode02_dynegene.yml \
 
 Create database and add encoding run
 ```bash
-dspl db add-full-encoding /media/remi-moreau/Seagate\ Expansion\ Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode03_genscript.db \
+dspl db add-full-encoding database/barcode03_genscript.db \
 --run output_data/synthesis_bench/encoding/full_encoding_15/ \
 --experience-id synthesis_bench \
 --delta-g-map input_data/synthesis_bench/delta_g_files/delta-g_mapping.csv

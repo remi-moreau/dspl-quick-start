@@ -4,7 +4,7 @@ exp_description: >
   Encoding and decoding of six images of the JPEG AIC 3 dataset, 
   using JPEGDNA as the outer coding protocol. 
 
-database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode04_six_images.db
+database: database/barcode04_six_images.db
 
 decoding_settings:
   ref_enc_run_id: full_encoding_11
@@ -35,7 +35,7 @@ decoding_settings:
 
   multi_pass_settings:
     name: MULTI_PASS # Replace with "SINGLE_PASS" to have single pass behavior
-    watch: true
+    watch: false
     granular: false
     time_limit: inf
     pass_limit: inf
