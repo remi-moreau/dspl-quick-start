@@ -2,4 +2,4 @@ decoding_settings:
   items:
     - 2:
         name: Burger
-        skip: true
+        skip: false

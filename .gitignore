@@ -25,4 +25,9 @@ plots/plots/*.png
 plots/plots/*.svg
 plots/plots/*.pdf
 
+plots/plots_barcode0*/*.png
+plots/plots_barcode0*/*.svg
+plots/plots_barcode0*/*.pdf
+
+
 tmp_*.py

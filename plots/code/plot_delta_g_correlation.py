@@ -5,9 +5,9 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode01_agilent.db"
+DB_PATH = "../../database/barcode03_genscript.db"
 
-RUN_LABEL = "barcode01_agilent_alignment_decoding"
+RUN_LABEL = "barcode03_genscript_alignment_decoding"
 #RUN_LABEL = "test_label"
 
 ITEM_IDS_TO_PLOT = [0, 1]
@@ -22,7 +22,7 @@ MAX_ZERO_RUN_RATIO_FOR_INCLUSION = 0.5
 
 VISUAL_INFINITY_FACTOR = 1.08
 
-DELTA_G_PRECISION = 1
+DELTA_G_PRECISION = 0.33333
 
 MIN_POINTS_PER_BIN_ACCEPTED = 10
 MIN_POINTS_PER_BIN_RATIO = 2

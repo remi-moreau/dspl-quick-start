@@ -5,10 +5,10 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode01_agilent.db"
+DB_PATH = "../../database/barcode03_genscript.db"
 
 EXP_ID = "synthesis_bench"
-READ_POOL_ID = "barcode01_agilent"
+READ_POOL_ID = "barcode03_genscript"
 
 ITEM_IDS_TO_PLOT = [0, 1, 2]
 

@@ -113,12 +113,12 @@ dspl run decoding decoding_barcode03_genscript.yml \
 
 Create database and add encoding run
 ```bash
-dspl db add-full-encoding /media/remi-moreau/Seagate\ Expansion\ Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode04_six_images.db \
+dspl db add-full-encoding database/barcode04_six_images.db \
 --run output_data/six_images/encoding/full_encoding_11/ \
 --experience-id six_images
 ```
 
-#### Decoding with all images
+#### Decoding with all images EXCEPT burger
 
 ```bash
 dspl run decoding decoding_barcode04_six_images.yml \
@@ -127,12 +127,12 @@ dspl run decoding decoding_barcode04_six_images.yml \
 --labels barcode04_six_images_alignment_decoding
 ```
 
-#### Decoding with all images EXCEPT burger
+#### Decoding with all images including burger
 
 ```bash
 dspl run decoding decoding_barcode04_six_images.yml \
---labels barcode04_six_images_alignment_decoding_skip_burger \
---override config/six_images/skip_burger.yml \
+--labels barcode04_six_images_alignment_decoding_with_burger \
+--override config/six_images/with_burger.yml \
 && dspl run metrics-computation metrics_computation_barcode04_six_images.yml \
---labels barcode04_six_images_alignment_decoding_skip_burger
+--labels barcode04_six_images_alignment_decoding_with_burger
 ```

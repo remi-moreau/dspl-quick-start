@@ -5,12 +5,12 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode01_agilent.db"
+DB_PATH = "../../database/barcode03_genscript.db"
 
-RUN_LABEL = "barcode01_agilent_alignment_decoding"
+RUN_LABEL = "barcode03_genscript_alignment_decoding"
 #RUN_LABEL = "test_label"
 
-ITEM_IDS_TO_PLOT = [0]
+ITEM_IDS_TO_PLOT = [0, 1]
 
 # Exclusion rule for the second panel:
 # a reference is excluded when its percentage of zero-decoding runs is >= this threshold.
@@ -18,6 +18,11 @@ ITEM_IDS_TO_PLOT = [0]
 MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION = 50
 
 VISUAL_INFINITY_FACTOR = 1.08
+
+# First subplot coverage display window (inclusive).
+COVERAGE_DISPLAY_MIN = 0
+COVERAGE_DISPLAY_MAX = 100
+MAX_XTICKS_FIRST_PLOT = 16
 
 SQL_QUERY = """
 WITH eligible_run_item AS (
@@ -112,7 +117,7 @@ ITEM_ID_COLOR_MAP = {
 PLOT_STYLE_MAP = {
     "cluster_size_distribution": {
         "alpha": 0.85,
-        "bar_width": 1.0,
+        "bar_width": 0.5,
         "edgecolor": "black",
         "linewidth": 0.5,
         "error_capsize": 3,
@@ -293,18 +298,28 @@ def main() -> None:
     )
 
     x = np.array(cluster_sizes, dtype=float)
+    if COVERAGE_DISPLAY_MIN > COVERAGE_DISPLAY_MAX:
+        raise ValueError("COVERAGE_DISPLAY_MIN must be <= COVERAGE_DISPLAY_MAX.")
+    x_in_range_mask = (x >= float(COVERAGE_DISPLAY_MIN)) & (x <= float(COVERAGE_DISPLAY_MAX))
+    if not np.any(x_in_range_mask):
+        raise ValueError(
+            "No coverage bins in first subplot range. "
+            "Adjust COVERAGE_DISPLAY_MIN/COVERAGE_DISPLAY_MAX."
+        )
+    x_first_plot = x[x_in_range_mask]
+
     item_ids = sorted(mean_by_item.keys())
     n_items = len(item_ids)
     bar_width = float(style["bar_width"])
     marker_style = PLOT_STYLE_MAP["average_coverage_marker"]
 
     for idx, item_id in enumerate(item_ids):
-        offsets = x + (idx - (n_items - 1) / 2.0) * bar_width
+        offsets = x_first_plot + (idx - (n_items - 1) / 2.0) * bar_width
         ax_item_distribution.bar(
             offsets,
-            mean_by_item[item_id],
+            mean_by_item[item_id][x_in_range_mask],
             width=bar_width,
-            yerr=se_by_item[item_id],
+            yerr=se_by_item[item_id][x_in_range_mask],
             color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
             alpha=style["alpha"],
             edgecolor=style["edgecolor"],
@@ -330,8 +345,15 @@ def main() -> None:
     ax_item_distribution.set_title(PLOT_NAME_MAP["cluster_size_distribution"])
     ax_item_distribution.set_xlabel(X_AXIS_NAME_MAP["cluster_size"])
     ax_item_distribution.set_ylabel(Y_AXIS_NAME_MAP["cluster_size_distribution"])
-    ax_item_distribution.set_xticks(x)
-    ax_item_distribution.set_xticklabels([str(size) for size in cluster_sizes])
+    first_plot_ticks = x_first_plot.astype(int).tolist()
+    if first_plot_ticks:
+        tick_step = max(1, int(np.ceil(len(first_plot_ticks) / float(MAX_XTICKS_FIRST_PLOT))))
+        reduced_ticks = first_plot_ticks[::tick_step]
+        if reduced_ticks[-1] != first_plot_ticks[-1]:
+            reduced_ticks.append(first_plot_ticks[-1])
+        ax_item_distribution.set_xticks(reduced_ticks)
+        ax_item_distribution.set_xticklabels([str(size) for size in reduced_ticks])
+    ax_item_distribution.set_xlim(float(COVERAGE_DISPLAY_MIN) - 0.5, float(COVERAGE_DISPLAY_MAX) + 0.5)
     ax_item_distribution.grid(axis="y", alpha=0.25, linestyle="--")
     ax_item_distribution.legend()
 

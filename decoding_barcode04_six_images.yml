@@ -11,7 +11,7 @@ decoding_settings:
 
   run_name: decoding # pipelinesys will automatically provide an unused positive integer run_number n, such that the dec_run_id will be run_name+"_"+run_number
 
-  loop: null
+  loop: -1
 
   labels:
     - barcode04_six_images_alignment_decoding
@@ -39,6 +39,7 @@ decoding_settings:
     granular: false
     time_limit: inf
     pass_limit: inf
+    n_files_per_pass: 10
     read_batch_size: 20000      
     early_stop_settings:
       name: PSNR
@@ -60,5 +61,9 @@ decoding_settings:
     ext_main_section_rs_bytes: 6
     jpegdna_python_executable: /home/remi-moreau/miniconda3/envs/jpegdna_vm_py311/bin/python
 
+  items:
+    - 2:
+        name: Burger
+        skip: true
 
     

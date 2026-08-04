@@ -6,12 +6,12 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode01_agilent.db"
+DB_PATH = "../../database/barcode03_genscript.db"
 
-RUN_LABEL = "barcode01_agilent_alignment_decoding"
+RUN_LABEL = "barcode03_genscript_alignment_decoding"
 #RUN_LABEL = "test_label"
 
-ITEM_IDS_TO_PLOT = [0]
+ITEM_IDS_TO_PLOT = [0, 1]
 
 DISPLAY_METRIC_MEANS = True
 

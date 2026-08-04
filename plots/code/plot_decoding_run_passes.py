@@ -5,11 +5,13 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode01_agilent.db"
+DB_PATH = "../../database/barcode03_genscript.db"
 
-DEC_RUN_ID_TO_PLOT = "decoding_167"
+DEC_RUN_IDS_TO_PLOT = ["decoding_190", "decoding_180", "decoding_185"]
 
-ITEM_IDS_TO_PLOT = [2]
+PLOT_AVERAGE_CURVE:bool = False
+
+ITEM_IDS_TO_PLOT = [0,1]
 
 # pass_index | coverage | n_tot_reads | estimated_sequencing_duration | run_duration
 X_AXIS_KEY = "coverage"
@@ -36,9 +38,9 @@ JOIN metrics_view_run_pass p
     ON p.exp_id = m.exp_id
    AND p.dec_run_id = m.dec_run_id
    AND p.dec_pass_id = m.dec_pass_id
-WHERE m.dec_run_id = ?
+WHERE m.dec_run_id IN ({run_placeholders})
     AND m.item_id IN ({item_placeholders})
-ORDER BY m.item_id ASC, m.dec_pass_id ASC
+ORDER BY m.dec_run_id ASC, m.item_id ASC, m.dec_pass_id ASC
 """
 
 ITEM_ID_NAME_MAP = {
@@ -58,7 +60,7 @@ OUTPUT_PATH_PDF = "../plots/decoding_run_passes.pdf"
 FIGURE_TITLE = "Decoding run passes metrics"
 
 FIGURE_DESCRIPTION_BASE = (
-    f"Pass-level metrics for decoding run {DEC_RUN_ID_TO_PLOT}. "
+    f"Pass-level metrics for decoding runs: {', '.join(DEC_RUN_IDS_TO_PLOT)}. "
     "The X axis is configurable and uses the same pass ordering for every subplot."
 )
 
@@ -88,9 +90,10 @@ Y_AXIS_NAME_MAP = {
 # ---- STYLES ----
 
 ITEM_ID_COLOR_MAP = {
-    0: "#1f77b4",
-    1: "#d62728",
-    2: "#2ca02c",
+    # Base color + 4 variants per item to distinguish up to 5 runs plotted together.
+    0: ["#1f77b4", "#2d85c0", "#3b93cc", "#61aad9", "#8ac2e6"],
+    1: ["#d62728", "#c93a3b", "#bb4d4e", "#ae5f61", "#a17274"],
+    2: ["#2ca02c", "#41aa41", "#56b456", "#6bbe6b", "#80c880"],
 }
 
 PLOT_STYLE_MAP = {
@@ -167,6 +170,13 @@ def _get_x_column_and_mode() -> tuple[str, str]:
     return X_AXIS_COLUMN_MAP[X_AXIS_KEY]
 
 
+def _get_series_color(item_id: int, run_index: int) -> str:
+    color_variants = ITEM_ID_COLOR_MAP.get(item_id, ["#7f7f7f"])
+    if not color_variants:
+        return "#7f7f7f"
+    return color_variants[run_index % len(color_variants)]
+
+
 def main() -> None:
     base_dir = Path(__file__).resolve().parent
     db_path = (base_dir / DB_PATH).resolve()
@@ -176,16 +186,22 @@ def main() -> None:
 
     if not ITEM_IDS_TO_PLOT:
         raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
+    if not DEC_RUN_IDS_TO_PLOT:
+        raise ValueError("DEC_RUN_IDS_TO_PLOT must contain at least one run id.")
 
+    run_placeholders = ",".join(["?"] * len(DEC_RUN_IDS_TO_PLOT))
     item_placeholders = ",".join(["?"] * len(ITEM_IDS_TO_PLOT))
-    query = SQL_QUERY.format(item_placeholders=item_placeholders)
-    query_params = [DEC_RUN_ID_TO_PLOT, *ITEM_IDS_TO_PLOT]
+    query = SQL_QUERY.format(
+        run_placeholders=run_placeholders,
+        item_placeholders=item_placeholders,
+    )
+    query_params = [*DEC_RUN_IDS_TO_PLOT, *ITEM_IDS_TO_PLOT]
 
     with sqlite3.connect(db_path) as conn:
         df = pd.read_sql_query(query, conn, params=query_params)
 
     if df.empty:
-        raise ValueError("No data returned by SQL query. Check DEC_RUN_ID_TO_PLOT and ITEM_IDS_TO_PLOT.")
+        raise ValueError("No data returned by SQL query. Check DEC_RUN_IDS_TO_PLOT and ITEM_IDS_TO_PLOT.")
 
     df = df[df["item_id"].isin(ITEM_ID_NAME_MAP.keys())].copy()
     if df.empty:
@@ -213,13 +229,24 @@ def main() -> None:
     df["perfectly_decoded_payload_ratio"] = df["perfectly_decoded_payload_ratio"] * 100.0
     df["fpdpc"] = df["fpdpc"].fillna(0)
 
-    df = df.sort_values(["item_id", "dec_pass_id"]).reset_index(drop=True)
+    run_order = {run_id: idx for idx, run_id in enumerate(DEC_RUN_IDS_TO_PLOT)}
+    df = df[df["dec_run_id"].isin(DEC_RUN_IDS_TO_PLOT)].copy()
+    df["run_order"] = df["dec_run_id"].map(run_order)
+    df = df.sort_values(["run_order", "item_id", "dec_pass_id"]).reset_index(drop=True)
 
     n_items_displayed = int(df["item_id"].nunique())
+    n_runs_displayed = int(df["dec_run_id"].nunique())
     figure_description = (
         f"{FIGURE_DESCRIPTION_BASE} "
-        f"Displayed items={n_items_displayed}; x-axis={X_AXIS_NAME_MAP[X_AXIS_KEY]}."
+        f"Displayed runs={n_runs_displayed}, items={n_items_displayed}; x-axis={X_AXIS_NAME_MAP[X_AXIS_KEY]}."
     )
+
+    displayed_runs_ordered = [run_id for run_id in DEC_RUN_IDS_TO_PLOT if run_id in set(df["dec_run_id"].tolist())]
+    series_keys: list[tuple[str, int]] = []
+    for run_id in displayed_runs_ordered:
+        for item_id in ITEM_IDS_TO_PLOT:
+            if ((df["dec_run_id"] == run_id) & (df["item_id"] == item_id)).any():
+                series_keys.append((run_id, item_id))
 
     fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(15, 10))
     axes_flat = axes.flatten()
@@ -234,50 +261,58 @@ def main() -> None:
             if x_mode == "shared":
                 shared_spacing = _compute_min_positive_spacing(df[x_column])
                 group_width = 0.8 * shared_spacing
-                bar_width = group_width / max(len(ITEM_IDS_TO_PLOT), 1)
+                bar_width = group_width / max(len(series_keys), 1)
             else:
                 bar_width = 0.8 * _compute_min_positive_spacing(df[x_column])
 
-            for item_index, item_id in enumerate(ITEM_IDS_TO_PLOT):
-                item_df = df[df["item_id"] == item_id].reset_index(drop=True)
-                if item_df.empty:
+            for series_index, (run_id, item_id) in enumerate(series_keys):
+                run_item_df = df[
+                    (df["dec_run_id"] == run_id) & (df["item_id"] == item_id)
+                ].reset_index(drop=True)
+                if run_item_df.empty:
                     continue
 
-                x_values = item_df[x_column].to_numpy(dtype=float)
-                y_values = item_df[y_column].to_numpy(dtype=float)
+                x_values = run_item_df[x_column].to_numpy(dtype=float)
+                y_values = run_item_df[y_column].to_numpy(dtype=float)
 
                 if x_mode == "shared":
-                    offsets = (item_index - (len(ITEM_IDS_TO_PLOT) - 1) / 2.0) * bar_width
+                    offsets = (series_index - (len(series_keys) - 1) / 2.0) * bar_width
                     x_positions = x_values + offsets
                 else:
                     x_positions = x_values
+
+                run_index = run_order[run_id]
 
                 ax.bar(
                     x_positions,
                     y_values,
                     width=bar_width,
-                    color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
+                    color=_get_series_color(item_id, run_index),
                     alpha=style["alpha"],
                     edgecolor=style["edgecolor"],
                     linewidth=style["linewidth"],
-                    label=ITEM_ID_NAME_MAP.get(item_id, f"item {item_id}"),
+                    label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item {item_id}')} ({run_id})",
                 )
         else:
-            for item_id in ITEM_IDS_TO_PLOT:
-                item_df = df[df["item_id"] == item_id].reset_index(drop=True)
-                if item_df.empty:
-                    continue
+            for run_id in displayed_runs_ordered:
+                run_index = run_order[run_id]
+                for item_id in ITEM_IDS_TO_PLOT:
+                    item_df = df[
+                        (df["dec_run_id"] == run_id) & (df["item_id"] == item_id)
+                    ].reset_index(drop=True)
+                    if item_df.empty:
+                        continue
 
-                x_values = item_df[x_column]
-                y_values = item_df[y_column]
+                    x_values = item_df[x_column]
+                    y_values = item_df[y_column]
 
-                ax.plot(
-                    x_values,
-                    y_values,
-                    color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
-                    label=ITEM_ID_NAME_MAP.get(item_id, f"item {item_id}"),
-                    **style,
-                )
+                    ax.plot(
+                        x_values,
+                        y_values,
+                        color=_get_series_color(item_id, run_index),
+                        label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item {item_id}')} ({run_id})",
+                        **style,
+                    )
 
         ax.set_title(PLOT_NAME_MAP[plot_key])
         ax.set_xlabel(X_AXIS_NAME_MAP[X_AXIS_KEY])
