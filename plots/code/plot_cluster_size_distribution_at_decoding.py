@@ -5,23 +5,55 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode03_genscript.db"
+# "barcode01_agilent" | "barcode02_dynegene" | "barcode03_genscript" | "barcode04_six_images"
+BARCODE = "barcode04_six_images"
 
-RUN_LABEL = "barcode03_genscript_alignment_decoding"
-#RUN_LABEL = "test_label"
+DB_PATH = f"/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/{BARCODE}.db"
 
-ITEM_IDS_TO_PLOT = [0, 1]
+RUN_LABEL = f"{BARCODE}_alignment_decoding"
 
-# Exclusion rule for the second panel:
-# a reference is excluded when its percentage of zero-decoding runs is >= this threshold.
-# Example: 50 means "exclude references with at least 50% zero runs".
-MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION = 50
+if BARCODE == "barcode04_six_images":
+    ITEM_IDS_TO_PLOT = [
+        0,
+        1,
+        3,
+        4,
+        5
+    ]
+
+    ITEM_ID_NAME_MAP = {
+        0: "Chest",
+        1: "Woman",
+        2: "Burger",
+        3: "Bird",
+        4: "Night",
+        5: "Day"
+    }
+
+else:
+    ITEM_IDS_TO_PLOT = [
+        0,
+        1,
+    ]
+
+    ITEM_ID_NAME_MAP = {
+        0: "JPEGDNA-reference",
+        1: "JPEGDNA-delta-G",
+    }
+
+# ---- OUTPUT PATH ----
+
+OUTPUT_PATH_PNG = f"../plots/{BARCODE}/cluster_size_distribution_at_decoding.png"
+OUTPUT_PATH_PDF = f"../plots/{BARCODE}/cluster_size_distribution_at_decoding.pdf"
+
 
 VISUAL_INFINITY_FACTOR = 1.08
+FIRST_DECODING_BIN_WIDTH = 0.10
+MAX_XTICKS_SECOND_PLOT = 18
 
 # First subplot coverage display window (inclusive).
 COVERAGE_DISPLAY_MIN = 0
-COVERAGE_DISPLAY_MAX = 100
+COVERAGE_DISPLAY_MAX = 50
 MAX_XTICKS_FIRST_PLOT = 16
 
 SQL_QUERY = """
@@ -69,40 +101,31 @@ FROM (
 )
 """
 
-ITEM_ID_NAME_MAP = {
-    0: "JPEGDNA-reference",
-    1: "JPEGDNA-delta-G",
-}
 
-# ---- OUTPUT PATH ----
-
-OUTPUT_PATH_PNG = "../plots/cluster_size_distribution_at_decoding.png"
-OUTPUT_PATH_SVG = "../plots/cluster_size_distribution_at_decoding.svg"
-OUTPUT_PATH_PDF = "../plots/cluster_size_distribution_at_decoding.pdf"
 
 # ---- NAMES ----
 
-FIGURE_TITLE = "Cluster size distributions for items JPEG DNA and JPEG DNA delta G over multiple runs"
+FIGURE_TITLE = f"Cluster size distributions for items JPEG DNA and JPEG DNA delta G over multiple runs ({BARCODE})"
 
 FIGURE_DESCRIPTION_BASE = (
     f"Average normalized cluster size distribution at decoding over all runs of label {RUN_LABEL}. "
     "For each item, $\\mu_{\\text{cov}}$ and $\\sigma_{\\text{cov}}$ are computed from the aggregated "
-    "inter-run relative-frequency distribution over coverage bins."
+    "normalized distribution over coverage bins."
 )
 
 PLOT_NAME_MAP = {
-    "cluster_size_distribution": "Reference Coverage distribution at $\\mathbf{image\\ decoding}$ (mean over multiple runs, with standard error)",
-    "cluster_size_at_first_decoding": "Reference Coverage distribution at $\\mathbf{reference\\ decoding}$"+ f" (at infinity: references decoded during less than {MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION}% of the decoding runs)",
+    "cluster_size_distribution": "Reference Coverage distribution at $\\mathbf{image\\ decoding}$",
+    "cluster_size_at_first_decoding": "Reference Coverage distribution at $\\mathbf{reference\\ decoding}$ (dropped-out references at $\\infty$)",
 }
 
 X_AXIS_NAME_MAP = {
     "cluster_size": "Coverage (i.e. size of the reference's cluster)",
-    "cluster_size_at_first_decoding": "Coverage at $\\mathbf{reference}$ decoding (integer bins)",
+    "cluster_size_at_first_decoding": "Coverage of a reference at its first perfect decoding",
 }
 
 Y_AXIS_NAME_MAP = {
-    "cluster_size_distribution": "Reference Relative Frequency at $\\mathbf{image}$ decoding (mean over multiple runs)",
-    "cluster_size_at_first_decoding": "Reference Relative Frequency at $\\mathbf{reference}$ decoding",
+    "cluster_size_distribution": "Normalized number of references",
+    "cluster_size_at_first_decoding": "Normalized number of references in bin",
 }
 
 
@@ -111,7 +134,10 @@ Y_AXIS_NAME_MAP = {
 ITEM_ID_COLOR_MAP = {
     0: "#1f77b4",  # blue
     1: "#d62728",  # red
-    2: "#2ca02c",  # green (fallback)
+    2: "#2ca02c",  # green
+    3: "#ff7f0e",  # orange
+    4: "#9467bd",  # purple
+    5: "#8c564b",  # brown
 }
 
 PLOT_STYLE_MAP = {
@@ -148,7 +174,7 @@ def _resolve_path_from_script(relative_path: Path) -> Path:
 
 def _compute_distribution_stats(
     df: pd.DataFrame,
-) -> tuple[list[int], dict[int, np.ndarray], dict[int, np.ndarray], dict[int, tuple[float, float]]]:
+) -> tuple[list[int], dict[int, np.ndarray], dict[int, tuple[float, float, float]]]:
     df = df.copy()
     df["count_used_for_consensus"] = (
         pd.to_numeric(df["count_used_for_consensus"], errors="coerce").fillna(0).astype(int)
@@ -176,47 +202,44 @@ def _compute_distribution_stats(
 
     cluster_sizes = sorted(int(size) for size in run_item_histograms.columns.tolist())
 
-    # Normalize per (run, item) so each row is a proper distribution summing to 1.
     run_item_histograms = run_item_histograms.reindex(cluster_sizes, axis=1, fill_value=0)
-    run_item_relative_histograms = run_item_histograms.div(
-        run_item_histograms.sum(axis=1),
-        axis=0,
-    )
 
-    mean_by_item: dict[int, np.ndarray] = {}
-    se_by_item: dict[int, np.ndarray] = {}
-    coverage_moments_by_item: dict[int, tuple[float, float]] = {}
+    normalized_by_item: dict[int, np.ndarray] = {}
+    coverage_moments_by_item: dict[int, tuple[float, float, float]] = {}
 
     for item_id in sorted(df["item_id"].unique().tolist()):
         if item_id not in ITEM_ID_NAME_MAP:
             continue
-        item_histograms = run_item_relative_histograms.xs(item_id, level="item_id")
+        item_histograms = run_item_histograms.xs(item_id, level="item_id")
         if isinstance(item_histograms, pd.Series):
             item_histograms = item_histograms.to_frame().T
         item_histograms = item_histograms.reindex(cluster_sizes, axis=1, fill_value=0)
-        mean_distribution = item_histograms.mean(axis=0).to_numpy(dtype=float)
-        n_runs = item_histograms.shape[0]
-        if n_runs > 1:
-            std_distribution = item_histograms.std(axis=0, ddof=1).to_numpy(dtype=float)
-            se_distribution = std_distribution / np.sqrt(float(n_runs))
-        else:
-            se_distribution = np.zeros_like(mean_distribution)
 
-        mean_by_item[item_id] = mean_distribution
-        se_by_item[item_id] = se_distribution
+        total_refs_item = float(item_histograms.to_numpy(dtype=float).sum())
+        if total_refs_item <= 0:
+            normalized_distribution = np.zeros(len(cluster_sizes), dtype=float)
+        else:
+            aggregated_counts = item_histograms.sum(axis=0).to_numpy(dtype=float)
+            normalized_distribution = aggregated_counts / total_refs_item
+
+        normalized_by_item[item_id] = normalized_distribution
 
         support = np.array(cluster_sizes, dtype=float)
-        total_prob = float(mean_distribution.sum())
+        total_prob = float(normalized_distribution.sum())
         if total_prob <= 0:
-            coverage_moments_by_item[item_id] = (0.0, 0.0)
+            coverage_moments_by_item[item_id] = (0.0, 0.0, 0.0)
         else:
-            normalized_distribution = mean_distribution / total_prob
-            mu_cov = float(np.sum(support * normalized_distribution))
-            var_cov = float(np.sum(((support - mu_cov) ** 2) * normalized_distribution))
+            prob_distribution = normalized_distribution / total_prob
+            mu_cov = float(np.sum(support * prob_distribution))
+            var_cov = float(np.sum(((support - mu_cov) ** 2) * prob_distribution))
             sigma_cov = float(np.sqrt(max(var_cov, 0.0)))
-            coverage_moments_by_item[item_id] = (mu_cov, sigma_cov)
+            cdf = np.cumsum(prob_distribution)
+            median_idx = int(np.searchsorted(cdf, 0.5, side="left"))
+            median_idx = min(max(median_idx, 0), len(support) - 1)
+            m_cov = float(support[median_idx])
+            coverage_moments_by_item[item_id] = (mu_cov, sigma_cov, m_cov)
 
-    return cluster_sizes, mean_by_item, se_by_item, coverage_moments_by_item
+    return cluster_sizes, normalized_by_item, coverage_moments_by_item
 
 
 def _compute_first_decoding_reference_stats(
@@ -246,10 +269,10 @@ def _compute_first_decoding_reference_stats(
     reference_level_df["zero_ratio_percent"] = 100.0 * reference_level_df["zero_ratio"]
 
     included_df = reference_level_df[
-        reference_level_df["zero_ratio_percent"] < MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION
+        reference_level_df["n_runs_zero"] < reference_level_df["n_runs_total"]
     ].copy()
     excluded_df = reference_level_df[
-        reference_level_df["zero_ratio_percent"] >= MAX_ZERO_RUN_RATIO_PERCENT_FOR_INCLUSION
+        reference_level_df["n_runs_zero"] == reference_level_df["n_runs_total"]
     ].copy()
 
     return reference_level_df, included_df, excluded_df
@@ -258,7 +281,6 @@ def _compute_first_decoding_reference_stats(
 def main() -> None:
     db_path = _resolve_path_from_script(Path(DB_PATH))
     output_path_png = _resolve_path_from_script(Path(OUTPUT_PATH_PNG))
-    output_path_svg = _resolve_path_from_script(Path(OUTPUT_PATH_SVG))
     output_path_pdf = _resolve_path_from_script(Path(OUTPUT_PATH_PDF))
 
     if not ITEM_IDS_TO_PLOT:
@@ -285,7 +307,7 @@ def main() -> None:
         f"Label '{RUN_LABEL}': decoding runs studied={n_runs_total}, displayed={n_runs_displayed}."
     )
 
-    cluster_sizes, mean_by_item, se_by_item, coverage_moments_by_item = _compute_distribution_stats(df)
+    cluster_sizes, normalized_by_item, coverage_moments_by_item = _compute_distribution_stats(df)
     reference_level_df, included_reference_df, excluded_reference_df = _compute_first_decoding_reference_stats(df)
 
     style = PLOT_STYLE_MAP["cluster_size_distribution"]
@@ -308,38 +330,37 @@ def main() -> None:
         )
     x_first_plot = x[x_in_range_mask]
 
-    item_ids = sorted(mean_by_item.keys())
+    item_ids = sorted(normalized_by_item.keys())
     n_items = len(item_ids)
-    bar_width = float(style["bar_width"])
+    group_width_first_plot = 1.0
+    bar_width = group_width_first_plot / max(n_items, 1)
     marker_style = PLOT_STYLE_MAP["average_coverage_marker"]
 
     for idx, item_id in enumerate(item_ids):
+        mu_cov, sigma_cov, m_cov = coverage_moments_by_item.get(item_id, (0.0, 0.0, 0.0))
         offsets = x_first_plot + (idx - (n_items - 1) / 2.0) * bar_width
         ax_item_distribution.bar(
             offsets,
-            mean_by_item[item_id][x_in_range_mask],
+            normalized_by_item[item_id][x_in_range_mask],
             width=bar_width,
-            yerr=se_by_item[item_id][x_in_range_mask],
             color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
             alpha=style["alpha"],
-            edgecolor=style["edgecolor"],
-            linewidth=style["linewidth"],
-            capsize=style["error_capsize"],
-            error_kw={"elinewidth": style["error_linewidth"]},
-            label=ITEM_ID_NAME_MAP.get(item_id, f"item_id={item_id}"),
+            edgecolor="none",
+            linewidth=0.0,
+            label=(
+                f"{ITEM_ID_NAME_MAP.get(item_id, f'item_id={item_id}')} "
+                f"($\\mu_{{\\text{{cov}}}}={mu_cov:.2f}, "
+                f"\\sigma_{{\\text{{cov}}}}={sigma_cov:.2f}, "
+                f"m_{{\\text{{cov}}}}={m_cov:.2f}$)"
+            ),
         )
         if item_id in coverage_moments_by_item:
-            mu_cov, sigma_cov = coverage_moments_by_item[item_id]
             ax_item_distribution.axvline(
-                mu_cov,
+                m_cov,
                 color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
                 linestyle=marker_style["linestyle"],
                 linewidth=marker_style["linewidth"],
                 alpha=marker_style["alpha"],
-                label=(
-                    f"{ITEM_ID_NAME_MAP.get(item_id, f'item_id={item_id}')} "
-                    f"($\\mu_{{\\text{{cov}}}}={mu_cov:.2f}, \\sigma_{{\\text{{cov}}}}={sigma_cov:.2f}$)"
-                ),
             )
 
     ax_item_distribution.set_title(PLOT_NAME_MAP["cluster_size_distribution"])
@@ -357,11 +378,18 @@ def main() -> None:
     ax_item_distribution.grid(axis="y", alpha=0.25, linestyle="--")
     ax_item_distribution.legend()
 
+    if FIRST_DECODING_BIN_WIDTH <= 0:
+        raise ValueError("FIRST_DECODING_BIN_WIDTH must be > 0.")
+
     finite_first_decoding = included_reference_df["mean_positive_count_at_first_decoding"].dropna()
     max_finite_first_decoding = (
         int(np.ceil(float(finite_first_decoding.max()))) if not finite_first_decoding.empty else 1
     )
-    visual_infinity_x = float(max_finite_first_decoding + 2)
+    max_finite_bin_edge = (
+        np.ceil(max_finite_first_decoding / FIRST_DECODING_BIN_WIDTH) * FIRST_DECODING_BIN_WIDTH
+    )
+    visual_infinity_x = float(max_finite_bin_edge + 2.0 * FIRST_DECODING_BIN_WIDTH)
+    total_refs_by_item = reference_level_df.groupby("item_id").size().to_dict()
 
     first_decoding_rows: list[pd.DataFrame] = []
 
@@ -372,25 +400,35 @@ def main() -> None:
         if not item_included.empty:
             item_included = item_included[np.isfinite(item_included["mean_positive_count_at_first_decoding"])].copy()
         if not item_included.empty:
-            item_included["bin_upper"] = (
-                np.ceil(item_included["mean_positive_count_at_first_decoding"]).astype(int)
+            item_included["bin_center"] = (
+                np.floor(
+                    item_included["mean_positive_count_at_first_decoding"] / FIRST_DECODING_BIN_WIDTH
+                )
+                * FIRST_DECODING_BIN_WIDTH
+                + (FIRST_DECODING_BIN_WIDTH / 2.0)
             )
             item_included = (
-                item_included.groupby("bin_upper", as_index=False)
-                .agg(n_points=("mean_positive_count_at_first_decoding", "size"))
+                item_included.groupby("bin_center", as_index=False)
+                .agg(n_refs=("mean_positive_count_at_first_decoding", "size"))
             )
+            total_refs_item = float(total_refs_by_item.get(item_id, 0))
+            if total_refs_item <= 0:
+                continue
+            item_included["n_refs_normalized"] = item_included["n_refs"] / total_refs_item
             item_included["item_id"] = item_id
             item_included["kind"] = "included"
-            item_included["bin_center"] = item_included["bin_upper"].astype(float)
             first_decoding_rows.append(item_included)
 
         if not item_excluded.empty:
+            total_refs_item = float(total_refs_by_item.get(item_id, 0))
+            if total_refs_item <= 0:
+                continue
             first_decoding_rows.append(
                 pd.DataFrame(
                     [
                         {
-                            "bin_upper": visual_infinity_x,
-                            "n_points": len(item_excluded),
+                            "n_refs": len(item_excluded),
+                            "n_refs_normalized": len(item_excluded) / total_refs_item,
                             "item_id": item_id,
                             "kind": "excluded",
                             "bin_center": visual_infinity_x,
@@ -403,7 +441,7 @@ def main() -> None:
         first_decoding_df = pd.concat(first_decoding_rows, ignore_index=True)
         item_ids_in_bins = sorted(first_decoding_df["item_id"].unique().tolist())
         n_items_in_bins = len(item_ids_in_bins)
-        group_width = 0.86
+        group_width = FIRST_DECODING_BIN_WIDTH
         bar_width = group_width / max(n_items_in_bins, 1)
 
         for idx, item_id in enumerate(item_ids_in_bins):
@@ -417,35 +455,82 @@ def main() -> None:
             if included_mask.any():
                 ax_first_decoding.bar(
                     x_positions[included_mask.to_numpy()],
-                    item_binned.loc[included_mask, "n_points"],
+                    item_binned.loc[included_mask, "n_refs_normalized"],
                     width=bar_width,
                     color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
                     alpha=0.75,
-                    edgecolor="black",
-                    linewidth=0.4,
-                    label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item_id={item_id}')} included",
+                    edgecolor="none",
+                    linewidth=0.0,
+                    label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item_id={item_id}')} decoded at least once",
                 )
             if excluded_mask.any():
                 ax_first_decoding.bar(
                     x_positions[excluded_mask.to_numpy()],
-                    item_binned.loc[excluded_mask, "n_points"],
+                    item_binned.loc[excluded_mask, "n_refs_normalized"],
                     width=bar_width,
                     color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
                     alpha=0.95,
-                    edgecolor="black",
-                    linewidth=0.4,
+                    edgecolor="none",
+                    linewidth=0.0,
                     hatch="//",
-                    label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item_id={item_id}')} excluded",
+                    label=f"{ITEM_ID_NAME_MAP.get(item_id, f'item_id={item_id}')} dropped-out (never decoded)",
                 )
 
     ax_first_decoding.set_title(PLOT_NAME_MAP["cluster_size_at_first_decoding"])
     ax_first_decoding.set_xlabel(X_AXIS_NAME_MAP["cluster_size_at_first_decoding"])
     ax_first_decoding.set_ylabel(Y_AXIS_NAME_MAP["cluster_size_at_first_decoding"])
-    ax_first_decoding.set_xlim(0.5, visual_infinity_x + 1.0)
+    if first_decoding_rows:
+        finite_centers = first_decoding_df.loc[
+            first_decoding_df["bin_center"] < visual_infinity_x,
+            "bin_center",
+        ]
+        if not finite_centers.empty:
+            left_xlim = float(finite_centers.min() - FIRST_DECODING_BIN_WIDTH / 2.0)
+        else:
+            left_xlim = float(visual_infinity_x - FIRST_DECODING_BIN_WIDTH)
+    else:
+        left_xlim = float(visual_infinity_x - FIRST_DECODING_BIN_WIDTH)
+    ax_first_decoding.set_xlim(left_xlim, visual_infinity_x + FIRST_DECODING_BIN_WIDTH)
     ax_first_decoding.grid(True, alpha=0.25, linestyle="--")
-    first_decoding_ticks = sorted(set(range(1, max_finite_first_decoding + 1)) | {int(visual_infinity_x)})
+
+    if first_decoding_rows:
+        finite_tick_candidates = sorted(
+            {
+                float(x_tick)
+                for x_tick in first_decoding_df.loc[
+                    first_decoding_df["bin_center"] < visual_infinity_x,
+                    "bin_center",
+                ].tolist()
+            }
+        )
+    else:
+        finite_tick_candidates = []
+
+    if finite_tick_candidates:
+        tick_step = max(1, int(np.ceil(len(finite_tick_candidates) / float(MAX_XTICKS_SECOND_PLOT))))
+        finite_ticks = finite_tick_candidates[::tick_step]
+        if finite_ticks[-1] != finite_tick_candidates[-1]:
+            finite_ticks.append(finite_tick_candidates[-1])
+    else:
+        finite_ticks = []
+
+    first_decoding_ticks = [*finite_ticks, visual_infinity_x]
     ax_first_decoding.set_xticks(first_decoding_ticks)
-    ax_first_decoding.set_xticklabels([str(x_tick) for x_tick in first_decoding_ticks])
+    ax_first_decoding.set_xticklabels(
+        [
+            "∞"
+            if np.isclose(x_tick, visual_infinity_x)
+            else (f"{x_tick:.1f}" if not np.isclose(x_tick, round(x_tick)) else str(int(round(x_tick))))
+            for x_tick in first_decoding_ticks
+        ]
+    )
+    ax_first_decoding.axvline(
+        visual_infinity_x,
+        color="black",
+        linewidth=1.0,
+        linestyle=":",
+        label="∞ = dropped-out references",
+    )
     ax_first_decoding.legend()
 
     fig.suptitle(FIGURE_TITLE, fontsize=16, y=0.985)
@@ -455,10 +540,8 @@ def main() -> None:
     plt.show()
 
     output_path_png.parent.mkdir(parents=True, exist_ok=True)
-    output_path_svg.parent.mkdir(parents=True, exist_ok=True)
     output_path_pdf.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path_png, dpi=200)
-    fig.savefig(output_path_svg)
     fig.savefig(output_path_pdf)
     plt.close(fig)
 

@@ -21,13 +21,7 @@ input_data/synthesis_bench/reads/*/*/*.fasta
 input_data/six_images/reads/*/*/*.fastq.gz
 input_data/six_images/reads/*/*.fastq.gz
 
-plots/plots/*.png
-plots/plots/*.svg
-plots/plots/*.pdf
-
-plots/plots_barcode0*/*.png
-plots/plots_barcode0*/*.svg
-plots/plots_barcode0*/*.pdf
+plots/plots/*
 
 
 tmp_*.py

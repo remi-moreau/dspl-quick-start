@@ -5,16 +5,50 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode03_genscript.db"
+# "barcode01_agilent" | "barcode02_dynegene" | "barcode03_genscript" | "barcode04_six_images"
+BARCODE = "barcode04_six_images"
 
-DEC_RUN_IDS_TO_PLOT = ["decoding_190", "decoding_180", "decoding_185"]
+DB_PATH = f"/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/{BARCODE}.db"
+
+DEC_RUN_IDS_TO_PLOT = [
+    "decoding_2", 
+    "decoding_7", 
+    "decoding_11"
+]
 
 PLOT_AVERAGE_CURVE:bool = False
 
-ITEM_IDS_TO_PLOT = [0,1]
+if BARCODE == "barcode04_six_images":
+    ITEM_IDS_TO_PLOT = [
+        0,
+        1,
+        3,
+        4,
+        5
+    ]
+
+    ITEM_ID_NAME_MAP = {
+        0: "Chest",
+        1: "Woman",
+        2: "Burger",
+        3: "Bird",
+        4: "Night",
+        5: "Day"
+    }
+
+else:
+    ITEM_IDS_TO_PLOT = [
+        0,
+        1,
+    ]
+
+    ITEM_ID_NAME_MAP = {
+        0: "JPEGDNA-reference",
+        1: "JPEGDNA-delta-G",
+    }
 
 # pass_index | coverage | n_tot_reads | estimated_sequencing_duration | run_duration
-X_AXIS_KEY = "coverage"
+X_AXIS_KEY = "estimated_sequencing_duration"
 
 FILTER_OUT_NULL_PSNR_ROWS = True
 
@@ -43,21 +77,14 @@ WHERE m.dec_run_id IN ({run_placeholders})
 ORDER BY m.dec_run_id ASC, m.item_id ASC, m.dec_pass_id ASC
 """
 
-ITEM_ID_NAME_MAP = {
-    0: "JPEGDNA-reference",
-    1: "JPEGDNA-delta-G",
-    2: "Motif-paircode"
-}
-
 # ---- OUTPUT PATH ----
 
-OUTPUT_PATH_PNG = "../plots/decoding_run_passes.png"
-OUTPUT_PATH_SVG = "../plots/decoding_run_passes.svg"
-OUTPUT_PATH_PDF = "../plots/decoding_run_passes.pdf"
+OUTPUT_PATH_PNG = f"../plots/{BARCODE}/decoding_run_passes.png"
+OUTPUT_PATH_PDF = f"../plots/{BARCODE}/decoding_run_passes.pdf"
 
 # ---- NAMES ----
 
-FIGURE_TITLE = "Decoding run passes metrics"
+FIGURE_TITLE = f"Decoding run passes metrics ({BARCODE})"
 
 FIGURE_DESCRIPTION_BASE = (
     f"Pass-level metrics for decoding runs: {', '.join(DEC_RUN_IDS_TO_PLOT)}. "
@@ -94,6 +121,9 @@ ITEM_ID_COLOR_MAP = {
     0: ["#1f77b4", "#2d85c0", "#3b93cc", "#61aad9", "#8ac2e6"],
     1: ["#d62728", "#c93a3b", "#bb4d4e", "#ae5f61", "#a17274"],
     2: ["#2ca02c", "#41aa41", "#56b456", "#6bbe6b", "#80c880"],
+    3: ["#ff7f0e", "#ff9132", "#ffa457", "#ffb87d", "#ffcca3"],
+    4: ["#9467bd", "#a27cc8", "#b091d3", "#bea7de", "#ccbee9"],
+    5: ["#17becf", "#39c8d6", "#5bd2dd", "#7ddce4", "#9fe7ec"],
 }
 
 PLOT_STYLE_MAP = {
@@ -181,7 +211,6 @@ def main() -> None:
     base_dir = Path(__file__).resolve().parent
     db_path = (base_dir / DB_PATH).resolve()
     output_path_png = (_resolve_path_from_script(Path(OUTPUT_PATH_PNG))).resolve()
-    output_path_svg = (_resolve_path_from_script(Path(OUTPUT_PATH_SVG))).resolve()
     output_path_pdf = (_resolve_path_from_script(Path(OUTPUT_PATH_PDF))).resolve()
 
     if not ITEM_IDS_TO_PLOT:
@@ -335,11 +364,9 @@ def main() -> None:
     plt.show()
 
     output_path_png.parent.mkdir(parents=True, exist_ok=True)
-    output_path_svg.parent.mkdir(parents=True, exist_ok=True)
     output_path_pdf.parent.mkdir(parents=True, exist_ok=True)
 
     fig.savefig(output_path_png, dpi=300, bbox_inches="tight")
-    fig.savefig(output_path_svg, bbox_inches="tight")
     fig.savefig(output_path_pdf, bbox_inches="tight")
     plt.close(fig)
 

@@ -8,14 +8,22 @@ from pathlib import Path
 # Map: label -> database path containing this label.
 # Up to 4 labels can be plotted simultaneously.
 LABEL_DB_PATH_MAP = {
-    "barcode03_genscript_alignment_decoding": "../../database/barcode03_genscript.db",
-    "barcode01_agilent_alignment_decoding": "../../database/barcode01_agilent.db"
+    "barcode01_agilent_alignment_decoding": "/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode01_agilent.db",
+    "barcode02_dynegene_alignment_decoding": "/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode02_dynegene.db",
+    "barcode03_genscript_alignment_decoding": "/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode03_genscript.db",
+    "barcode04_six_images_alignment_decoding": "/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode04_six_images.db",
 }
 
-ITEM_IDS_TO_PLOT = [0, 1]
+
+LABEL_ITEM_IDS_TO_PLOT_MAP = {
+    "barcode01_agilent_alignment_decoding": [0, ],
+    "barcode02_dynegene_alignment_decoding": [0, ],
+    "barcode03_genscript_alignment_decoding": [0, ],
+    "barcode04_six_images_alignment_decoding": [3, ],
+}
 
 # pass_index | coverage | n_tot_reads | estimated_sequencing_duration | run_duration
-X_AXIS_KEY = "estimated_sequencing_duration"
+X_AXIS_KEY = "coverage"
 
 # Metrics to average and display.
 METRICS_TO_PLOT = [
@@ -76,16 +84,26 @@ FROM (
 )
 """
 
+# ITEM_ID_NAME_MAP = {
+#     0: "JPEGDNA-reference",
+#     1: "JPEGDNA-delta-G",
+#     2: "Motif-paircode",
+# }
+
+
 ITEM_ID_NAME_MAP = {
-    0: "JPEGDNA-reference",
-    1: "JPEGDNA-delta-G",
-    2: "Motif-paircode",
+    0: "JPEGDNA-ref-bird",
+    1: "Woman",
+    2: "Burger",
+    3: "JPEGDNA-ref-bird",
+    4: "Night",
+    5: "Day"
 }
+
 
 # ---- OUTPUT PATH ----
 
 OUTPUT_PATH_PNG = "../plots/AVG_decoding_run_passes.png"
-OUTPUT_PATH_SVG = "../plots/AVG_decoding_run_passes.svg"
 OUTPUT_PATH_PDF = "../plots/AVG_decoding_run_passes.pdf"
 
 # ---- NAMES ----
@@ -123,11 +141,15 @@ Y_AXIS_NAME_MAP = {
 # ---- STYLES ----
 
 ITEM_ID_COLOR_MAP = {
-    # Base color + 3 variants per item to distinguish up to 4 labels.
-    0: ["#1f77b4", "#21d2f1", "#61aad9", "#8ac2e6"],
-    1: ["#d62728", "#f68c5b", "#ae5f61", "#a17274"],
-    2: ["#2ca02c", "#9cf49c", "#6bbe6b", "#80c880"],
+    # Base color + 4 variants per item to distinguish up to 5 runs plotted together.
+    0: ["#1f77b4", "#55bbff", "#3b93cc", "#61aad9", "#8ac2e6"],
+    1: ["#d62728", "#c93a3b", "#bb4d4e", "#ae5f61", "#a17274"],
+    2: ["#2ca02c", "#41aa41", "#56b456", "#6bbe6b", "#80c880"],
+    3: ["#ff7f0e", "#ff9132", "#ffa457", "#ffb87d", "#ffcca3"],
+    4: ["#9467bd", "#a27cc8", "#b091d3", "#bea7de", "#ccbee9"],
+    5: ["#17becf", "#39c8d6", "#5bd2dd", "#7ddce4", "#9fe7ec"],
 }
+
 
 PLOT_STYLE_MAP = {
     "individual_curve": {
@@ -246,13 +268,12 @@ def _make_figure_axes(n_metrics: int) -> tuple[Figure, np.ndarray]:
 
 def main() -> None:
     output_path_png = _resolve_path_from_script(Path(OUTPUT_PATH_PNG))
-    output_path_svg = _resolve_path_from_script(Path(OUTPUT_PATH_SVG))
     output_path_pdf = _resolve_path_from_script(Path(OUTPUT_PATH_PDF))
 
-    if not ITEM_IDS_TO_PLOT:
-        raise ValueError("ITEM_IDS_TO_PLOT must contain at least one item id.")
     if not LABEL_DB_PATH_MAP:
         raise ValueError("LABEL_DB_PATH_MAP must contain at least one label -> database mapping.")
+    if not LABEL_ITEM_IDS_TO_PLOT_MAP:
+        raise ValueError("LABEL_ITEM_IDS_TO_PLOT_MAP must contain at least one label -> item ids mapping.")
     if len(LABEL_DB_PATH_MAP) > 4:
         raise ValueError("At most 4 labels are supported simultaneously.")
     if not METRICS_TO_PLOT:
@@ -264,16 +285,46 @@ def main() -> None:
     if unknown_metrics:
         raise ValueError(f"Unsupported metrics in METRICS_TO_PLOT: {unknown_metrics}")
 
+    missing_labels_in_item_map = [
+        label_name for label_name in LABEL_DB_PATH_MAP if label_name not in LABEL_ITEM_IDS_TO_PLOT_MAP
+    ]
+    if missing_labels_in_item_map:
+        raise ValueError(
+            "Each label in LABEL_DB_PATH_MAP must be present in LABEL_ITEM_IDS_TO_PLOT_MAP. "
+            f"Missing: {missing_labels_in_item_map}"
+        )
+
+    label_item_ids_map: dict[str, list[int]] = {}
+    for label_name in LABEL_DB_PATH_MAP:
+        raw_item_ids = LABEL_ITEM_IDS_TO_PLOT_MAP.get(label_name, [])
+        unique_item_ids = sorted({int(item_id) for item_id in raw_item_ids})
+        if not unique_item_ids:
+            raise ValueError(
+                f"LABEL_ITEM_IDS_TO_PLOT_MAP['{label_name}'] must contain at least one item id."
+            )
+        label_item_ids_map[label_name] = unique_item_ids
+
+    selected_item_ids_union = sorted(
+        {item_id for item_ids in label_item_ids_map.values() for item_id in item_ids}
+    )
+    unknown_item_ids = sorted(set(selected_item_ids_union) - set(ITEM_ID_NAME_MAP.keys()))
+    if unknown_item_ids:
+        raise ValueError(
+            "All selected item ids must be declared in ITEM_ID_NAME_MAP. "
+            f"Unknown item ids: {unknown_item_ids}"
+        )
+
     x_column = _get_x_column()
 
-    item_placeholders = ",".join(["?"] * len(ITEM_IDS_TO_PLOT))
-    query = SQL_QUERY.format(item_placeholders=item_placeholders)
     frames: list[pd.DataFrame] = []
     runs_total_by_label: dict[str, int] = {}
 
     for label_name, relative_db_path in LABEL_DB_PATH_MAP.items():
         db_path = _resolve_path_from_script(Path(relative_db_path))
-        query_params = [label_name, *ITEM_IDS_TO_PLOT]
+        label_item_ids = label_item_ids_map[label_name]
+        item_placeholders = ",".join(["?"] * len(label_item_ids))
+        query = SQL_QUERY.format(item_placeholders=item_placeholders)
+        query_params = [label_name, *label_item_ids]
         with sqlite3.connect(db_path) as conn:
             label_df = pd.read_sql_query(query, conn, params=query_params)
             n_runs_total = int(conn.execute(SQL_QUERY_LABEL_RUNS_TOTAL, (label_name,)).fetchone()[0])
@@ -326,6 +377,15 @@ def main() -> None:
     ]
     label_order = {label_name: idx for idx, label_name in enumerate(displayed_labels_ordered)}
 
+    displayed_item_ids_by_label: dict[str, list[int]] = {}
+    for label_name in displayed_labels_ordered:
+        configured_item_ids = label_item_ids_map[label_name]
+        displayed_item_ids_by_label[label_name] = [
+            item_id
+            for item_id in configured_item_ids
+            if ((df["label_name"] == label_name) & (df["item_id"] == item_id)).any()
+        ]
+
     displayed_runs_by_label: dict[str, int] = {}
     for label_name in displayed_labels_ordered:
         label_runs = df[df["label_name"] == label_name]["dec_run_id"].nunique()
@@ -349,13 +409,11 @@ def main() -> None:
         ax = axes_flat[metric_idx]
         y_column = METRIC_COLUMN_MAP[metric_key]
 
-        for item_id in ITEM_IDS_TO_PLOT:
-            item_df = df[df["item_id"] == item_id].copy()
-            if item_df.empty:
-                continue
-
-            for label_name in displayed_labels_ordered:
-                label_item_df = item_df[item_df["label_name"] == label_name].copy()
+        for label_name in displayed_labels_ordered:
+            for item_id in displayed_item_ids_by_label.get(label_name, []):
+                label_item_df = df[
+                    (df["label_name"] == label_name) & (df["item_id"] == item_id)
+                ].copy()
                 if label_item_df.empty:
                     continue
 
@@ -468,11 +526,9 @@ def main() -> None:
     plt.show()
 
     output_path_png.parent.mkdir(parents=True, exist_ok=True)
-    output_path_svg.parent.mkdir(parents=True, exist_ok=True)
     output_path_pdf.parent.mkdir(parents=True, exist_ok=True)
 
     fig.savefig(output_path_png, dpi=300, bbox_inches="tight")
-    fig.savefig(output_path_svg, bbox_inches="tight")
     fig.savefig(output_path_pdf, bbox_inches="tight")
     plt.close(fig)
 

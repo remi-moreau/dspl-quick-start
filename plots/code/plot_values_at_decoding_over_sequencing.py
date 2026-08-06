@@ -6,12 +6,41 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode03_genscript.db"
+# "barcode01_agilent" | "barcode02_dynegene" | "barcode03_genscript" | "barcode04_six_images"
+BARCODE = "barcode04_six_images"
 
-RUN_LABEL = "barcode03_genscript_alignment_decoding"
-#RUN_LABEL = "test_label"
+DB_PATH = f"/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/{BARCODE}.db"
 
-ITEM_IDS_TO_PLOT = [0, 1]
+RUN_LABEL = f"{BARCODE}_alignment_decoding"
+
+if BARCODE == "barcode04_six_images":
+    ITEM_IDS_TO_PLOT = [
+        0,
+        1,
+        3,
+        4,
+        5
+    ]
+
+    ITEM_ID_NAME_MAP = {
+        0: "Chest",
+        1: "Woman",
+        2: "Burger",
+        3: "Bird",
+        4: "Night",
+        5: "Day"
+    }
+
+else:
+    ITEM_IDS_TO_PLOT = [
+        0,
+        1,
+    ]
+
+    ITEM_ID_NAME_MAP = {
+        0: "JPEGDNA-reference",
+        1: "JPEGDNA-delta-G",
+    }
 
 DISPLAY_METRIC_MEANS = True
 
@@ -42,20 +71,14 @@ FROM (
 )
 """
 
-ITEM_ID_NAME_MAP = {
-    0: "JPEGDNA",
-    1: "JPEGDNA-delta-G",
-}
-
 # ---- OUTPUT PATH ----
 
-OUTPUT_PATH_PNG = "../plots/values_at_decoding_over_sequencing.png"
-OUTPUT_PATH_SVG = "../plots/values_at_decoding_over_sequencing.svg"
-OUTPUT_PATH_PDF = "../plots/values_at_decoding_over_sequencing.pdf"
+OUTPUT_PATH_PNG = f"../plots/{BARCODE}/values_at_decoding_over_sequencing.png"
+OUTPUT_PATH_PDF = f"../plots/{BARCODE}/values_at_decoding_over_sequencing.pdf"
 
 # ---- NAMES ----
 
-FIGURE_TITLE = "Metrics at image decoding over sequencing (successive runs)"
+FIGURE_TITLE = f"Metrics at image decoding over sequencing (successive runs) ({BARCODE})"
 
 FIGURE_DESCRIPTION_BASE = "Different image decoding-level metrics over sequencing. "\
     + "The X axis is the numbers of the successive runs. A new run starts as soon as the previous one succeed."\
@@ -84,7 +107,10 @@ Y_AXIS_NAME_MAP = {
 ITEM_ID_COLOR_MAP = {
     0: "#1f77b4",  # blue
     1: "#d62728",  # red
-    2: "#2ca02c",  # green (fallback)
+    2: "#2ca02c",  # green
+    3: "#ff7f0e",  # orange
+    4: "#9467bd",  # purple
+    5: "#8c564b",  # brown
 }
 
 PLOT_STYLE_MAP = {
@@ -141,7 +167,6 @@ def main() -> None:
     base_dir = Path(__file__).resolve().parent
     db_path = (base_dir / DB_PATH).resolve()
     output_path_png = (base_dir / OUTPUT_PATH_PNG).resolve()
-    output_path_svg = (base_dir / OUTPUT_PATH_SVG).resolve()
     output_path_pdf = (base_dir / OUTPUT_PATH_PDF).resolve()
 
     if not ITEM_IDS_TO_PLOT:
@@ -246,11 +271,9 @@ def main() -> None:
     plt.show()
 
     output_path_png.parent.mkdir(parents=True, exist_ok=True)
-    output_path_svg.parent.mkdir(parents=True, exist_ok=True)
     output_path_pdf.parent.mkdir(parents=True, exist_ok=True)
 
     fig.savefig(output_path_png, dpi=300, bbox_inches="tight")
-    fig.savefig(output_path_svg, bbox_inches="tight")
     fig.savefig(output_path_pdf, bbox_inches="tight")
     plt.close(fig)
 

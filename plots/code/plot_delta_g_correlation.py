@@ -5,12 +5,44 @@
 # ---- DATABASE ----
 from pathlib import Path
 
-DB_PATH = "../../database/barcode03_genscript.db"
+# "barcode01_agilent" | "barcode02_dynegene" | "barcode03_genscript" | "barcode04_six_images"
+BARCODE = "barcode03_genscript"
 
-RUN_LABEL = "barcode03_genscript_alignment_decoding"
+DB_PATH = f"/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/{BARCODE}.db"
+
+RUN_LABEL = f"{BARCODE}_alignment_decoding"
+
 #RUN_LABEL = "test_label"
 
-ITEM_IDS_TO_PLOT = [0, 1]
+if BARCODE == "barcode04_six_images":
+    ITEM_IDS_TO_PLOT = [
+        0,
+        1,
+        3,
+        4,
+        5
+    ]
+
+    ITEM_ID_NAME_MAP = {
+        0: "Chest",
+        1: "Woman",
+        2: "Burger",
+        3: "Bird",
+        4: "Night",
+        5: "Day"
+    }
+
+else:
+    ITEM_IDS_TO_PLOT = [
+        0,
+        1,
+    ]
+
+    ITEM_ID_NAME_MAP = {
+        0: "JPEGDNA-reference",
+        1: "JPEGDNA-delta-G",
+        2: "motif-paircode",
+    }
 
 #USE_SINGLE_RUN_ID_INSTEAD = "decoding_1"  # None | str
 USE_SINGLE_RUN_ID_INSTEAD = None
@@ -18,6 +50,7 @@ USE_SINGLE_RUN_ID_INSTEAD = None
 # Exclusion rule:
 # a reference is excluded when its zero-decoding run ratio is >= this threshold.
 # Ratio scale is [0, 1]. Example: 0.5 means "exclude references with at least 50% zero runs".
+# And 1.0 means "exclude references with 100% zero runs only", i.e. dropped out references.
 MAX_ZERO_RUN_RATIO_FOR_INCLUSION = 0.5
 
 VISUAL_INFINITY_FACTOR = 1.08
@@ -75,45 +108,35 @@ FROM (
 )
 """
 
-ITEM_ID_NAME_MAP = {
-    0: "JPEGDNA-reference",
-    1: "JPEGDNA-delta-G",
-}
-
 # ---- OUTPUT PATH ----
 
-OUTPUT_PATH_FIG_COVERAGE_PNG = "../plots/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.png"
-OUTPUT_PATH_FIG_COVERAGE_SVG = "../plots/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.svg"
-OUTPUT_PATH_FIG_COVERAGE_PDF = "../plots/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.pdf"
+OUTPUT_PATH_FIG_COVERAGE_PNG = f"../plots/{BARCODE}/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.png"
+OUTPUT_PATH_FIG_COVERAGE_PDF = f"../plots/{BARCODE}/delta_g_scatter_and_effect_on_coverage_at_oligo_decoding.pdf"
 
-OUTPUT_PATH_FIG_DROPOUT_PNG = "../plots/delta_g_effect_on_dropout.png"
-OUTPUT_PATH_FIG_DROPOUT_SVG = "../plots/delta_g_effect_on_dropout.svg"
-OUTPUT_PATH_FIG_DROPOUT_PDF = "../plots/delta_g_effect_on_dropout.pdf"
+OUTPUT_PATH_FIG_DROPOUT_PNG = f"../plots/{BARCODE}/delta_g_effect_on_underdecoded_references.png"
+OUTPUT_PATH_FIG_DROPOUT_PDF = f"../plots/{BARCODE}/delta_g_effect_on_underdecoded_references.pdf"
 
 # ---- NAMES ----
 
-FIGURE_COVERAGE_TITLE = "Reference Coverage at reference decoding against delta G."
+FIGURE_COVERAGE_TITLE = f"Reference Coverage at reference decoding against delta G ({BARCODE})."
 
 FIGURE_COVERAGE_DESCRIPTION_BASE = (
-    #f"Reference Coverage at reference decoding against delta G.\n"
-    "$\\mathbf{DEFINITION}$: a reference is said to be $\\mathbf{dropped-out}$ iff it is perfectly decoded during less than "
-    f"{MAX_ZERO_RUN_RATIO_FOR_INCLUSION*100}% of the decoding runs."
-    "Otherwise, it is said to be $\\mathbf{included}$.\n"
+    "Included and drop out references form a full partition (100% of selected references).\n"
 )
 
-FIGURE_DROPOUT_TITLE = "Delta G effect on Dropout Probability."
+FIGURE_DROPOUT_TITLE = f"Delta G effect on Underdecoded Reference Probability ({BARCODE})."
 
 FIGURE_DROPOUT_DESCRIPTION_BASE = (
-    "$\\mathbf{DEFINITION}$: a reference is said to be $\\mathbf{dropped-out}$ iff it is perfectly decoded during less than "
+    "$\\mathbf{DEFINITION}$: a reference is said to be $\\mathbf{underdecoded}$ iff it is perfectly decoded during less than "
     f"{MAX_ZERO_RUN_RATIO_FOR_INCLUSION*100}% of the decoding runs."
     "Otherwise, it is said to be $\\mathbf{included}$.\n"
 
 )
 
 PLOT_NAME_MAP = {
-    "delta_g_correlation": "Reference Coverage at first perfect decoding against delta G ($\\mathbf{dropped-out}$ references shown at infinity on the top)",
+    "delta_g_correlation": "Reference Coverage at first perfect decoding against delta G ($\\mathbf{drop\\ out}$ = never decoded references shown at infinity on the top)",
     "delta_g_binned_regression": "Binned mean positive coverage over delta G intervals ($\\mathbf{included}$ references)",
-    "delta_g_excluded_ratio": "$\\mathbf{Dropped-out}$ References ratio by Delta G bin",
+    "delta_g_excluded_ratio": "$\\mathbf{Underdecoded\\ references}$ ratio by Delta G bin",
 }
 
 X_AXIS_NAME_MAP = {
@@ -123,7 +146,7 @@ X_AXIS_NAME_MAP = {
 Y_AXIS_NAME_MAP = {
     "count_at_first_decoding": "Reference Coverage at first correct decoding (mean over positive runs)",
     "count_at_first_decoding_binned": "Mean coverage in bin",
-    "excluded_ratio_probability": "Probability for a reference to be $\\mathbf{dropped-out}$",
+    "excluded_ratio_probability": "Probability for a reference to be $\\mathbf{underdecoded}$",
 }
 
 
@@ -132,7 +155,10 @@ Y_AXIS_NAME_MAP = {
 ITEM_ID_COLOR_MAP = {
     0: "#1f77b4",  # blue
     1: "#d62728",  # red
-    2: "#2ca02c",  # green (fallback)
+    2: "#2ca02c",  # green
+    3: "#ff7f0e",  # orange
+    4: "#9467bd",  # purple
+    5: "#8c564b",  # brown
 }
 
 PLOT_STYLE_MAP = {
@@ -186,10 +212,8 @@ def _resolve_path_from_script(relative_path: Path) -> Path:
 def main() -> None:
     db_path = _resolve_path_from_script(Path(DB_PATH))
     output_path_fig_coverage_png = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_COVERAGE_PNG))
-    output_path_fig_coverage_svg = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_COVERAGE_SVG))
     output_path_fig_coverage_pdf = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_COVERAGE_PDF))
     output_path_fig_dropout_png = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_DROPOUT_PNG))
-    output_path_fig_dropout_svg = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_DROPOUT_SVG))
     output_path_fig_dropout_pdf = _resolve_path_from_script(Path(OUTPUT_PATH_FIG_DROPOUT_PDF))
 
     if not ITEM_IDS_TO_PLOT:
@@ -247,6 +271,14 @@ def main() -> None:
         reference_level_df["zero_ratio"] >= MAX_ZERO_RUN_RATIO_FOR_INCLUSION
     ].copy()
 
+    # Figure 1 semantics: drop out means "never decoded" only.
+    never_decoded_reference_level_df = reference_level_df[
+        reference_level_df["n_runs_zero"] == reference_level_df["n_runs_total"]
+    ].copy()
+    decoded_at_least_once_reference_level_df = reference_level_df[
+        reference_level_df["n_runs_zero"] < reference_level_df["n_runs_total"]
+    ].copy()
+
     rejected_reference_level_df["item_name"] = rejected_reference_level_df["item_id"].map(
         ITEM_ID_NAME_MAP
     )
@@ -282,17 +314,17 @@ def main() -> None:
     hist_style = PLOT_STYLE_MAP["delta_g_binned_regression"]
     binned_rows: list[pd.DataFrame] = []
 
-    finite_means = accepted_reference_level_df["mean_positive_coverage"].dropna()
+    finite_means = decoded_at_least_once_reference_level_df["mean_positive_coverage"].dropna()
     visual_infinity_y = (
         float(finite_means.max()) * VISUAL_INFINITY_FACTOR if not finite_means.empty else 1.0
     )
 
     for item_id, item_name in ITEM_ID_NAME_MAP.items():
-        accepted_item_df = accepted_reference_level_df[
-            accepted_reference_level_df["item_id"] == item_id
+        accepted_item_df = decoded_at_least_once_reference_level_df[
+            decoded_at_least_once_reference_level_df["item_id"] == item_id
         ]
-        excluded_item_df = rejected_reference_level_df[
-            rejected_reference_level_df["item_id"] == item_id
+        excluded_item_df = never_decoded_reference_level_df[
+            never_decoded_reference_level_df["item_id"] == item_id
         ]
 
         if not accepted_item_df.empty:
@@ -300,7 +332,7 @@ def main() -> None:
                 accepted_item_df["delta_g"],
                 accepted_item_df["mean_positive_coverage"],
                 color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
-                label=f"{item_name} "+"$\\mathbf{included}$ references (count={len(accepted_item_df)})",
+                label=f"{item_name} "+"$\\mathbf{included}$"+ f"references (count={len(accepted_item_df)})",
                 marker=scatter_style["marker"],
                 s=scatter_style["s"],
                 alpha=scatter_style["alpha"],
@@ -312,7 +344,7 @@ def main() -> None:
                 excluded_item_df["delta_g"],
                 np.full(len(excluded_item_df), visual_infinity_y),
                 color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
-                label=f"{item_name} "+"$\\mathbf{dropped\\text{-}out}$ references (count={len(excluded_item_df)})",
+                label=f"{item_name} "+"$\\mathbf{drop\\ out}$"+ f" references (count={len(excluded_item_df)})",
                 marker=excluded_scatter_style["marker"],
                 s=excluded_scatter_style["s"],
                 alpha=excluded_scatter_style["alpha"],
@@ -367,8 +399,36 @@ def main() -> None:
     ax_scatter.set_title(PLOT_NAME_MAP["delta_g_correlation"])
     ax_scatter.set_ylabel(Y_AXIS_NAME_MAP["count_at_first_decoding"])
     ax_scatter.grid(True, alpha=0.25, linestyle="--")
-    ax_scatter.axhline(visual_infinity_y, color="black", linewidth=1.0, linestyle=":")
-    ax_scatter.set_ylim(0, visual_infinity_y * 1.08)
+    ax_scatter.axhline(
+        visual_infinity_y,
+        color="black",
+        linewidth=1.0,
+        linestyle=":",
+        label="Dropped-out references",
+    )
+    finite_scatter_values = decoded_at_least_once_reference_level_df["mean_positive_coverage"].dropna().to_numpy(dtype=float)
+    if finite_scatter_values.size > 0:
+        y_min_data = float(np.min(finite_scatter_values))
+        y_max_data = float(np.max(finite_scatter_values))
+        y_span = max(y_max_data - y_min_data, 1e-9)
+        y_lower = y_min_data - (0.08 * y_span)
+        y_upper = visual_infinity_y + (0.08 * y_span)
+        if y_upper <= visual_infinity_y:
+            y_upper = visual_infinity_y + 0.5
+        ax_scatter.set_ylim(y_lower, y_upper)
+    else:
+        ax_scatter.set_ylim(visual_infinity_y - 1.0, visual_infinity_y + 0.5)
+
+    y_ticks = [
+        float(tick)
+        for tick in ax_scatter.get_yticks()
+        if float(tick) < float(visual_infinity_y)
+    ]
+    y_ticks.append(float(visual_infinity_y))
+    y_ticks = sorted(set(y_ticks))
+    y_labels = ["∞" if abs(float(tick) - float(visual_infinity_y)) <= 1e-9 else f"{tick:g}" for tick in y_ticks]
+    ax_scatter.set_yticks(y_ticks)
+    ax_scatter.set_yticklabels(y_labels)
     ax_scatter.legend()
 
     ax_hist.set_title(PLOT_NAME_MAP["delta_g_binned_regression"])
@@ -393,10 +453,8 @@ def main() -> None:
     plt.show()
 
     output_path_fig_coverage_png.parent.mkdir(parents=True, exist_ok=True)
-    output_path_fig_coverage_svg.parent.mkdir(parents=True, exist_ok=True)
     output_path_fig_coverage_pdf.parent.mkdir(parents=True, exist_ok=True)
     fig_coverage.savefig(output_path_fig_coverage_png, dpi=250)
-    fig_coverage.savefig(output_path_fig_coverage_svg)
     fig_coverage.savefig(output_path_fig_coverage_pdf)
     plt.close(fig_coverage)
 
@@ -471,6 +529,7 @@ def main() -> None:
     for ax_item_dropout, item_id in zip(axes_dropout, item_ids_for_dropout):
         item_name = ITEM_ID_NAME_MAP.get(item_id, f"item_id={item_id}")
         item_ratio = ratio_rows_by_item.get(item_id)
+        n_underdecoded_plotted = int(item_ratio["n_excluded"].sum()) if item_ratio is not None and not item_ratio.empty else 0
         if item_ratio is None or item_ratio.empty:
             ax_item_dropout.text(
                 0.5,
@@ -517,7 +576,10 @@ def main() -> None:
 
             ax_item_dropout.legend()
 
-        ax_item_dropout.set_title(f"{PLOT_NAME_MAP['delta_g_excluded_ratio']} - {item_name}")
+        ax_item_dropout.set_title(
+            f"{PLOT_NAME_MAP['delta_g_excluded_ratio']} - {item_name} "
+            f"(N underdecoded refs plotted={n_underdecoded_plotted})"
+        )
         ax_item_dropout.set_xlabel(X_AXIS_NAME_MAP["delta_g"])
         ax_item_dropout.set_ylabel(Y_AXIS_NAME_MAP["excluded_ratio_probability"])
         ax_item_dropout.grid(True, alpha=0.25, linestyle="--")
@@ -537,10 +599,8 @@ def main() -> None:
     plt.show()
 
     output_path_fig_dropout_png.parent.mkdir(parents=True, exist_ok=True)
-    output_path_fig_dropout_svg.parent.mkdir(parents=True, exist_ok=True)
     output_path_fig_dropout_pdf.parent.mkdir(parents=True, exist_ok=True)
     fig_dropout.savefig(output_path_fig_dropout_png, dpi=250)
-    fig_dropout.savefig(output_path_fig_dropout_svg)
     fig_dropout.savefig(output_path_fig_dropout_pdf)
     plt.close(fig_dropout)
 
