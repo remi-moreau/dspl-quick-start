@@ -1,0 +1,117 @@
+
+output_path: plots/plots_v2/
+
+inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
+  - 1:
+      name: Agilent sureprint
+      database: database/barcode01_agilent.db
+      read_pool_id: barcode01_agilent
+      items:
+        - 0:
+            name: JPEGDNA-control
+        - 1:
+            name: JPEGDNA-DeltaG
+      decoding_run_label: barcode01_agilent_alignment_decoding
+  - 2:
+      name: Dynegene
+      database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode02_dynegene.db
+      read_pool_id: barcode02_dynegene
+      items:
+        - 0:
+            name: JPEGDNA-control
+        - 1:
+            name: JPEGDNA-DeltaG
+      decoding_run_label: barcode02_dynegene_alignment_decoding
+  - 3:
+      name: Genscript
+      database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode03_genscript.db
+      read_pool_id: barcode03_genscript
+      items:
+        - 0:
+            name: JPEGDNA-control
+        - 1:
+            name: JPEGDNA-DeltaG
+      decoding_run_label: barcode03_genscript_alignment_decoding
+
+scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level yes/no plotting switch)
+  # - read_pool_stats:
+  #     plot_settings:
+  #       - ref-coverage-in-read-pool_distribution:
+  #         # add here any plot-specific settings
+  #       - ref-coverage-in-read-pool_vs_delta-g_scatter:
+  #       - ref-coverage-in-read-pool_vs_delta-g_mean-in-bin:
+  #     script_settings:
+  #       # add here any script-specific settings
+
+  - decoding_run-metrics:
+      script_settings:
+                x_axis_key: coverage
+                common_x_origin: 0.0
+                grid_n_points: 220
+                min_points_per_curve: 2
+      plot_settings:
+        - psnr_vs_run-progression:
+                        plot_individual_curves: false
+                        plot_average_curve: true
+                        plot_se_band: true
+                        plot_std_band: false
+        - hamming-dist_vs_run-progression:
+                        plot_individual_curves: false
+                        plot_average_curve: true
+                        plot_se_band: true
+                        plot_std_band: false
+        - pdpr_vs_run-progression:
+                        plot_individual_curves: false
+                        plot_average_curve: true
+                        plot_se_band: true
+                        plot_std_band: false
+        - fpdpc_vs_run-progression:
+                        plot_individual_curves: false
+                        plot_average_curve: true
+                        plot_se_band: true
+                        plot_std_band: false
+        - psnr-at-decoding_vs_run-number:
+                        display_metric_mean: false
+        - hamming-dist-at-decoding_vs_run-number:
+                        display_metric_mean: false
+        - pdpr-at-decoding_vs_run-number:
+                        display_metric_mean: false
+        - fpdpc-at-decoding_vs_run-number:
+                        display_metric_mean: false
+        - coverage-at-decoding_vs_run-number:
+                display_metric_mean: false
+        - estimated-seq-duration-at-decoding_vs_run-number:
+                display_metric_mean: false
+
+  - decoding_ref-coverage:
+      script_settings:
+        use_single_run_id_instead: null
+
+      plot_settings:
+        - ref-coverage-at-image-decoding_distribution:
+            title: "Reference Coverage distribution at image decoding"
+            description: "Each bar shows the normalized number of references per image-decoding coverage bin; item-level statistics summarize the aggregated distribution."
+            coverage_display_min: 0
+            coverage_display_max: 50
+            max_xticks: 16
+        - ref-coverage-at-ref-decoding_distribution:
+            title: "Reference Coverage distribution at reference decoding (drop out at infinity)"
+            description: "Coverage at first perfect decoding is shown on finite bins for references decoded at least once; references never decoded are grouped at infinity."
+            bin_width: 0.10
+            max_xticks: 18
+        - ref-coverage-at-ref-decoding_vs_delta-g_scatter:
+            title: "Reference Coverage at first perfect decoding against delta G"
+            description: "Each point is one reference with X=delta G and Y=mean positive coverage at first perfect decoding; drop-out references are shown on an infinity horizontal line."
+            visual_infinity_factor: 1.08
+        - ref-coverage-at-ref-decoding_vs_delta-g_mean-in-bin:
+            title: "Binned mean positive coverage over delta G intervals"
+            description: "Delta G is binned and each bar reports mean positive coverage for bins passing the minimum point threshold."
+            delta_g_precision: 0.33333
+            min_points_per_bin: 10
+        - underdecoded-ref-proba_vs_delta-g_mean-in-bin:
+            title: "Underdecoded reference probability by delta G bin"
+            description: "For each delta G bin, probability is N_underdecoded / (N_underdecoded + N_accepted), where underdecoded is defined by the configured zero-run threshold."
+            max_zero_run_ratio_for_inclusion: 0.5
+            delta_g_precision: 0.33333
+            min_points_per_bin: 2
+            display_linear_regression: true

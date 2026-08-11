@@ -6,7 +6,7 @@
 from pathlib import Path
 
 # "barcode01_agilent" | "barcode02_dynegene" | "barcode03_genscript" | "barcode04_six_images"
-BARCODE = "barcode04_six_images"
+BARCODE = "barcode03_genscript"
 
 if BARCODE == "barcode04_six_images":
     DB_PATH = f"/media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/{BARCODE}.db"
@@ -45,7 +45,7 @@ else:
     }
 
 # ---- PLOT CONFIG ----
-ITEM_DISTINCTION = False
+ITEM_DISTINCTION = True
 
 # If set to an integer N, only reads with position_in_read_pool < N are used.
 # If None, no read-count limit is applied.
