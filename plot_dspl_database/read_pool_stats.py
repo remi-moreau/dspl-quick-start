@@ -548,9 +548,7 @@ class ReadPoolStatsScript:
                     alpha=0.9,
                     edgecolor="black",
                     linewidth=0.4,
-                    label=f"Global bins (n >= {plot_settings.min_points_per_bin})",
                 )
-                axis.legend(fontsize=8)
             axis.set_title(input_model.input_spec.name)
             axis.set_xlabel("Delta G")
             axis.set_ylabel("Mean normalized read-pool coverage in bin")

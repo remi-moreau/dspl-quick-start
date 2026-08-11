@@ -1,6 +1,6 @@
 
 output_path: plots/plots_v2/temp_test/
-show_figures: false
+show_figures: true
 figure_width_per_input: 10.0
 figure_height: 5.5
 
@@ -16,28 +16,28 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
         - 1:
             name: JPEGDNA-DeltaG
       decoding_run_label: barcode01_agilent_alignment_decoding
-#   - 2:
-#       name: Dynegene
-#       exp_id: synthesis_bench
-#       database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode02_dynegene.db
-#       read_pool_id: barcode02_dynegene
-#       items:
-#         - 0:
-#             name: JPEGDNA-control
-#         - 1:
-#             name: JPEGDNA-DeltaG
-#       decoding_run_label: barcode02_dynegene_alignment_decoding
-#   - 3:
-#       name: Genscript
-#       exp_id: synthesis_bench
-#       database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode03_genscript.db
-#       read_pool_id: barcode03_genscript
-#       items:
-#         - 0:
-#             name: JPEGDNA-control
-#         - 1:
-#             name: JPEGDNA-DeltaG
-#       decoding_run_label: barcode03_genscript_alignment_decoding
+  - 2:
+      name: Dynegene
+      exp_id: synthesis_bench
+      database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode02_dynegene.db
+      read_pool_id: barcode02_dynegene
+      items:
+        - 0:
+            name: JPEGDNA-control
+        - 1:
+            name: JPEGDNA-DeltaG
+      decoding_run_label: barcode02_dynegene_alignment_decoding
+  - 3:
+      name: Genscript
+      exp_id: synthesis_bench
+      database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode03_genscript.db
+      read_pool_id: barcode03_genscript
+      items:
+        - 0:
+            name: JPEGDNA-control
+        - 1:
+            name: JPEGDNA-DeltaG
+      decoding_run_label: barcode03_genscript_alignment_decoding
 
 scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level yes/no plotting switch)
   - read_pool_stats:
