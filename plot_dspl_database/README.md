@@ -41,6 +41,14 @@ Optional utility function and/or classes a script can optionally use.
 
 Plotting scripts export one multipage PDF containing one or more metadata pages followed by the configured figures, plus one PNG per figure. Figure and script settings are validated by strict Pydantic models owned by each plotting script.
 
+Top-level `show_figures: true` displays each configured figure in YAML order before export. Close the figure window to continue; any interactive resize is preserved in the PNG and PDF. Metadata pages are not displayed.
+
+Every figure accepts `same_x_scale_across_inputs` and `same_y_scale_across_inputs`. When enabled, the corresponding limits are harmonized across populated input/label axes after rendering.
+
+Top-level `figure_width_per_input` and `figure_height` define the initial canvas size for every plotting script. The `read_pool_stats` distribution setting `read_count_values_per_bin: N` groups `N` consecutive integer read-count values in each bar class before converting the X axis to normalized coverage. Set it to `null` to retain Freedman-Diaconis binning on normalized coverage.
+
+For `ref-coverage-at-ref-decoding_vs_delta-g_scatter`, metadata report Spearman rho and its p-value per input and item. Only finite decoded-reference pairs are included; graphical drop-outs at infinity are excluded.
+
 ## 2.5. Other rules
 
 No subpackage. Every module must be at the package root.

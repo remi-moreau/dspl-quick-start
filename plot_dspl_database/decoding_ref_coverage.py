@@ -19,12 +19,14 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from scipy.stats import spearmanr
 
 from optional_script_utils import (
     MetadataSection,
     PlotTextSettings,
     apply_figure_title,
     build_metadata_pages,
+    harmonize_axes_scales,
     make_axes_grid,
     resolve_database_path,
     save_figure_page_and_png,
@@ -250,6 +252,44 @@ FROM (
 """
 
 
+def compute_infinity_bin_center(finite_values: pd.Series, bin_width: float) -> float:
+    numeric_values = pd.to_numeric(finite_values, errors="coerce")
+    numeric_values = numeric_values[np.isfinite(numeric_values)]
+    if numeric_values.empty:
+        return bin_width / 2.0
+    last_finite_center = (
+        np.floor(float(numeric_values.max()) / bin_width) * bin_width
+        + (bin_width / 2.0)
+    )
+    return float(last_finite_center + bin_width)
+
+
+def compute_visual_infinity_level(finite_values: pd.Series, factor: float) -> float:
+    numeric_values = pd.to_numeric(finite_values, errors="coerce")
+    numeric_values = numeric_values[np.isfinite(numeric_values)]
+    if numeric_values.empty:
+        return 1.0
+    return float(numeric_values.max()) * factor
+
+
+def compute_spearman_statistics(rows_df: pd.DataFrame) -> tuple[int, float | None, float | None]:
+    pairs = rows_df[["delta_g", "mean_positive_coverage"]].replace([np.inf, -np.inf], np.nan).dropna()
+    n_points = len(pairs)
+    if (
+        n_points < 2
+        or pairs["delta_g"].nunique() < 2
+        or pairs["mean_positive_coverage"].nunique() < 2
+    ):
+        return n_points, None, None
+
+    result = spearmanr(pairs["delta_g"], pairs["mean_positive_coverage"])
+    rho = float(result.statistic)
+    p_value = float(result.pvalue)
+    if not np.isfinite(rho) or not np.isfinite(p_value):
+        return n_points, None, None
+    return n_points, rho, p_value
+
+
 @dataclass
 class InputReadModel:
     input_spec: InputSpec
@@ -305,6 +345,11 @@ class DecodingRefCoverageScript:
         return per_input
 
     def _apply_figure_title(self, fig: Figure, plot_name: str, plot_settings: PlotTextSettings) -> None:
+        harmonize_axes_scales(
+            fig.axes,
+            same_x_scale=plot_settings.same_x_scale_across_inputs,
+            same_y_scale=plot_settings.same_y_scale_across_inputs,
+        )
         title = plot_settings.title or DEFAULT_PLOT_TITLES[plot_name]
         apply_figure_title(fig, title)
 
@@ -329,17 +374,38 @@ class DecodingRefCoverageScript:
                 for model in self.input_models
                 if not delta_g_plot or model.has_delta_g
             ]
+            metadata_lines = [
+                f"Figure settings: {figure_metadata or '{}'}",
+                f"Inputs plotted: {', '.join(available_inputs) if available_inputs else 'none'}",
+            ]
+            if plot_spec.name == "ref-coverage-at-ref-decoding_vs_delta-g_scatter":
+                metadata_lines.extend(self._spearman_metadata_lines())
             sections.append(
                 MetadataSection(
                     title=f"{index}. {title}",
                     description=explanation,
-                    lines=(
-                        f"Figure settings: {figure_metadata or '{}'}",
-                        f"Inputs plotted: {', '.join(available_inputs) if available_inputs else 'none'}",
-                    ),
+                    lines=tuple(metadata_lines),
                 )
             )
         return build_metadata_pages(self.script_name, script_metadata_lines, sections)
+
+    def _spearman_metadata_lines(self) -> list[str]:
+        lines: list[str] = []
+        for input_model in self.input_models:
+            item_names = self._item_name_map(input_model.input_spec)
+            item_statistics: list[str] = []
+            decoded_df = input_model.decoded_at_least_once_reference_level_df
+            for item_id, item_name in item_names.items():
+                item_df = decoded_df[decoded_df["item_id"] == item_id]
+                n_points, rho, p_value = compute_spearman_statistics(item_df)
+                if rho is None or p_value is None:
+                    item_statistics.append(f"{item_name}: n={n_points}, rho=N/A, p_value=N/A")
+                else:
+                    item_statistics.append(
+                        f"{item_name}: n={n_points}, rho={rho:.4g}, p_value={p_value:.4g}"
+                    )
+            lines.append(f"Spearman - {input_model.input_spec.name}: " + "; ".join(item_statistics))
+        return lines
 
     def _validate_requested_plots(self) -> None:
         unknown_plots = [
@@ -404,6 +470,7 @@ class DecodingRefCoverageScript:
                     plot_name=plot_spec.name,
                     output_dir=output_dir,
                     pdf=pdf,
+                    show_figure=self.context.show_figures,
                 )
 
     def _build_read_model_for_input(self, input_spec: InputSpec) -> InputReadModel:
@@ -498,9 +565,12 @@ class DecodingRefCoverageScript:
     def _item_name_map(input_spec: InputSpec) -> dict[int, str]:
         return {item.item_id: item.name for item in input_spec.items}
 
-    @staticmethod
-    def _make_axes_grid(n_inputs: int, height: float = 4.8) -> tuple[Figure, list[Axes]]:
-        return make_axes_grid(n_inputs, height)
+    def _make_axes_grid(self, n_inputs: int) -> tuple[Figure, list[Axes]]:
+        return make_axes_grid(
+            n_inputs,
+            height=self.context.figure_height,
+            width_per_input=self.context.figure_width_per_input,
+        )
 
     def _compute_image_decoding_distribution(
         self,
@@ -566,7 +636,7 @@ class DecodingRefCoverageScript:
         plot_settings = ImageDecodingDistributionSettings.model_validate(
             self.plot_specs_by_name[plot_name].settings
         )
-        fig, axes = self._make_axes_grid(len(self.input_models), height=5.0)
+        fig, axes = self._make_axes_grid(len(self.input_models))
         for ax, input_model in zip(axes, self.input_models):
             cluster_sizes, normalized_by_item, moments_by_item = self._compute_image_decoding_distribution(input_model)
             if not cluster_sizes:
@@ -621,7 +691,21 @@ class DecodingRefCoverageScript:
         plot_settings = RefDecodingDistributionSettings.model_validate(
             self.plot_specs_by_name[plot_name].settings
         )
-        fig, axes = self._make_axes_grid(len(self.input_models), height=5.0)
+        fig, axes = self._make_axes_grid(len(self.input_models))
+        shared_infinity_x: float | None = None
+        if plot_settings.same_x_scale_across_inputs:
+            all_finite_values = pd.concat(
+                [
+                    model.decoded_at_least_once_reference_level_df["mean_positive_coverage"]
+                    for model in self.input_models
+                ],
+                ignore_index=True,
+            )
+            shared_infinity_x = compute_infinity_bin_center(
+                all_finite_values,
+                plot_settings.bin_width,
+            )
+
         for ax, input_model in zip(axes, self.input_models):
             included_df = input_model.decoded_at_least_once_reference_level_df
             excluded_df = input_model.never_decoded_reference_level_df
@@ -629,9 +713,11 @@ class DecodingRefCoverageScript:
             total_refs_by_item = input_model.reference_level_df.groupby("item_id").size().to_dict()
 
             finite_values = included_df["mean_positive_coverage"].dropna()
-            max_finite = int(np.ceil(float(finite_values.max()))) if not finite_values.empty else 1
-            max_bin_edge = np.ceil(max_finite / plot_settings.bin_width) * plot_settings.bin_width
-            infinity_x = float(max_bin_edge + 2.0 * plot_settings.bin_width)
+            infinity_x = (
+                shared_infinity_x
+                if shared_infinity_x is not None
+                else compute_infinity_bin_center(finite_values, plot_settings.bin_width)
+            )
 
             rows: list[pd.DataFrame] = []
             for item_id in sorted(item_names.keys()):
@@ -705,7 +791,7 @@ class DecodingRefCoverageScript:
                 {
                     float(x_tick)
                     for x_tick in merged.loc[
-                        merged["bin_center"] < infinity_x,
+                        merged["kind"].eq("included"),
                         "bin_center",
                     ].tolist()
                 }
@@ -742,7 +828,21 @@ class DecodingRefCoverageScript:
         plot_settings = RefDecodingDeltaGScatterSettings.model_validate(
             self.plot_specs_by_name[plot_name].settings
         )
-        fig, axes = self._make_axes_grid(len(self.input_models), height=5.0)
+        fig, axes = self._make_axes_grid(len(self.input_models))
+        shared_infinity_y: float | None = None
+        if plot_settings.same_y_scale_across_inputs:
+            all_finite_means = pd.concat(
+                [
+                    model.decoded_at_least_once_reference_level_df["mean_positive_coverage"]
+                    for model in self.input_models
+                ],
+                ignore_index=True,
+            )
+            shared_infinity_y = compute_visual_infinity_level(
+                all_finite_means,
+                plot_settings.visual_infinity_factor,
+            )
+
         for ax, input_model in zip(axes, self.input_models):
             if not input_model.has_delta_g:
                 ax.text(0.5, 0.5, "No delta_g data", ha="center", va="center", transform=ax.transAxes)
@@ -754,7 +854,11 @@ class DecodingRefCoverageScript:
             dropped_df = input_model.never_decoded_reference_level_df.dropna(subset=["delta_g"])
 
             finite_means = accepted_df["mean_positive_coverage"].dropna()
-            infinity_y = float(finite_means.max()) * plot_settings.visual_infinity_factor if not finite_means.empty else 1.0
+            infinity_y = (
+                shared_infinity_y
+                if shared_infinity_y is not None
+                else compute_visual_infinity_level(finite_means, plot_settings.visual_infinity_factor)
+            )
             for item_id in sorted(item_names.keys()):
                 item_acc = accepted_df[accepted_df["item_id"] == item_id]
                 item_drop = dropped_df[dropped_df["item_id"] == item_id]
@@ -795,7 +899,7 @@ class DecodingRefCoverageScript:
         plot_settings = RefDecodingDeltaGMeanInBinSettings.model_validate(
             self.plot_specs_by_name[plot_name].settings
         )
-        fig, axes = self._make_axes_grid(len(self.input_models), height=5.0)
+        fig, axes = self._make_axes_grid(len(self.input_models))
         for ax, input_model in zip(axes, self.input_models):
             if not input_model.has_delta_g:
                 ax.text(0.5, 0.5, "No delta_g data", ha="center", va="center", transform=ax.transAxes)
@@ -859,7 +963,7 @@ class DecodingRefCoverageScript:
     def _plot_underdecoded_ref_proba_vs_delta_g_mean_in_bin(self) -> Figure:
         plot_name = "underdecoded-ref-proba_vs_delta-g_mean-in-bin"
         plot_settings = self._underdecoded_plot_settings(plot_name)
-        fig, axes = self._make_axes_grid(len(self.input_models), height=5.0)
+        fig, axes = self._make_axes_grid(len(self.input_models))
         for ax, input_model in zip(axes, self.input_models):
             if not input_model.has_delta_g:
                 ax.text(0.5, 0.5, "No delta_g data", ha="center", va="center", transform=ax.transAxes)

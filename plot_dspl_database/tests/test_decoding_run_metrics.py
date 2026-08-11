@@ -16,7 +16,11 @@ from decoding_run_metrics import (  # noqa: E402
     DecodingRunMetricsSettings,
     convert_at_decoding_to_display_units,
 )
-from optional_script_utils import MetadataSection, build_metadata_pages  # noqa: E402
+from optional_script_utils import (  # noqa: E402
+    MetadataSection,
+    build_metadata_pages,
+    harmonize_axes_scales,
+)
 from protocols import PlotSpec, ScriptExecutionContext, ScriptSpec  # noqa: E402
 
 
@@ -130,3 +134,19 @@ def test_metadata_builder_creates_multiple_pages_without_dropping_sections() -> 
     finally:
         for page in pages:
             plt.close(page)
+
+
+def test_axes_scales_can_be_harmonized_independently() -> None:
+    figure, axes = plt.subplots(1, 2)
+    axes[0].plot([0.0, 1.0], [10.0, 20.0])
+    axes[1].plot([2.0, 4.0], [-5.0, 5.0])
+    original_y_limits = [axis.get_ylim() for axis in axes]
+
+    harmonize_axes_scales(axes, same_x_scale=True, same_y_scale=False)
+
+    try:
+        assert axes[0].get_xlim() == axes[1].get_xlim()
+        assert axes[0].get_ylim() == original_y_limits[0]
+        assert axes[1].get_ylim() == original_y_limits[1]
+    finally:
+        plt.close(figure)

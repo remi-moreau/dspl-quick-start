@@ -18,6 +18,7 @@ from optional_script_utils import (
     PlotTextSettings,
     apply_figure_title,
     build_metadata_pages,
+    harmonize_axes_scales,
     make_axes_grid,
     resolve_database_path,
     save_figure_page_and_png,
@@ -280,7 +281,13 @@ class DecodingRunMetricsScript:
             for plot_spec in self.context.script.plot_settings:
                 print(f"[{self.script_name}] rendering plot={plot_spec.name}")
                 fig = plot_dispatcher[plot_spec.name](plot_spec.name)
-                save_figure_page_and_png(fig, plot_spec.name, output_dir, pdf)
+                save_figure_page_and_png(
+                    fig,
+                    plot_spec.name,
+                    output_dir,
+                    pdf,
+                    show_figure=self.context.show_figures,
+                )
 
     def _build_read_model_for_input(
         self,
@@ -375,7 +382,11 @@ class DecodingRunMetricsScript:
             self.plot_specs_by_name[plot_name].settings
         )
         x_column = X_AXIS_COLUMNS[self.settings.x_axis_key]
-        fig, axes = make_axes_grid(len(self.input_models), height=5.0)
+        fig, axes = make_axes_grid(
+            len(self.input_models),
+            height=self.context.figure_height,
+            width_per_input=self.context.figure_width_per_input,
+        )
 
         for axis, input_model in zip(axes, self.input_models):
             item_names = self._item_name_map(input_model.input_spec)
@@ -440,13 +451,22 @@ class DecodingRunMetricsScript:
             else:
                 axis.text(0.5, 0.5, "No valid curves", ha="center", va="center", transform=axis.transAxes)
 
+        harmonize_axes_scales(
+            axes,
+            same_x_scale=plot_settings.same_x_scale_across_inputs,
+            same_y_scale=plot_settings.same_y_scale_across_inputs,
+        )
         apply_figure_title(fig, plot_settings.title or DEFAULT_PLOT_TITLES[plot_name])
         return fig
 
     def _plot_at_decoding_vs_run_number(self, plot_name: str) -> Figure:
         metric_column = AT_DECODING_PLOTS[plot_name]
         plot_settings = AtDecodingPlotSettings.model_validate(self.plot_specs_by_name[plot_name].settings)
-        fig, axes = make_axes_grid(len(self.input_models), height=5.0)
+        fig, axes = make_axes_grid(
+            len(self.input_models),
+            height=self.context.figure_height,
+            width_per_input=self.context.figure_width_per_input,
+        )
 
         for axis, input_model in zip(axes, self.input_models):
             item_names = self._item_name_map(input_model.input_spec)
@@ -487,6 +507,11 @@ class DecodingRunMetricsScript:
             else:
                 axis.text(0.5, 0.5, "No decoded values", ha="center", va="center", transform=axis.transAxes)
 
+        harmonize_axes_scales(
+            axes,
+            same_x_scale=plot_settings.same_x_scale_across_inputs,
+            same_y_scale=plot_settings.same_y_scale_across_inputs,
+        )
         apply_figure_title(fig, plot_settings.title or DEFAULT_PLOT_TITLES[plot_name])
         return fig
 

@@ -18,6 +18,8 @@ class PlotTextSettings(BaseModel):
 
 	title: str | None = None
 	description: str | None = None
+	same_x_scale_across_inputs: bool = False
+	same_y_scale_across_inputs: bool = False
 
 
 @dataclass(frozen=True)
@@ -34,10 +36,23 @@ def resolve_database_path(database_path: Path) -> Path:
 	return (repository_root / database_path).resolve()
 
 
-def make_axes_grid(n_inputs: int, height: float = 4.8) -> tuple[Figure, list[Axes]]:
+def make_axes_grid(
+	n_inputs: int,
+	height: float = 4.8,
+	width_per_input: float = 6.0,
+) -> tuple[Figure, list[Axes]]:
 	if n_inputs <= 0:
 		raise ValueError("n_inputs must be > 0.")
-	fig, axes = plt.subplots(1, n_inputs, figsize=(6.0 * n_inputs, height), sharey=False)
+	if height <= 0:
+		raise ValueError("height must be > 0.")
+	if width_per_input <= 0:
+		raise ValueError("width_per_input must be > 0.")
+	fig, axes = plt.subplots(
+		1,
+		n_inputs,
+		figsize=(width_per_input * n_inputs, height),
+		sharey=False,
+	)
 	if n_inputs == 1:
 		axes = [axes]
 	return fig, list(axes)
@@ -48,12 +63,46 @@ def apply_figure_title(fig: Figure, title: str) -> None:
 	fig.tight_layout(rect=(0.02, 0.02, 0.98, 0.94))
 
 
+def harmonize_axes_scales(
+	axes: Iterable[Axes],
+	*,
+	same_x_scale: bool,
+	same_y_scale: bool,
+) -> None:
+	populated_axes = [axis for axis in axes if axis.has_data()]
+	if len(populated_axes) < 2:
+		return
+
+	if same_x_scale:
+		x_limits = [axis.get_xlim() for axis in populated_axes]
+		shared_x_limits = (
+			min(lower for lower, _ in x_limits),
+			max(upper for _, upper in x_limits),
+		)
+		for axis in populated_axes:
+			axis.set_xlim(shared_x_limits)
+
+	if same_y_scale:
+		y_limits = [axis.get_ylim() for axis in populated_axes]
+		shared_y_limits = (
+			min(lower for lower, _ in y_limits),
+			max(upper for _, upper in y_limits),
+		)
+		for axis in populated_axes:
+			axis.set_ylim(shared_y_limits)
+
+
 def save_figure_page_and_png(
 	fig: Figure,
 	plot_name: str,
 	output_dir: Path,
 	pdf: PdfPages,
+	*,
+	show_figure: bool = False,
 ) -> None:
+	if show_figure:
+		plt.figure(fig.number)
+		plt.show(block=True)
 	fig.savefig(output_dir / f"{plot_name}.png", dpi=250)
 	pdf.savefig(fig)
 	plt.close(fig)

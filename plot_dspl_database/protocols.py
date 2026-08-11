@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 SUPPORTED_SCRIPTS: set[str] = {
 	"decoding_run-metrics",
 	"decoding_ref-coverage",
+	"read_pool_stats",
 }
 
 
@@ -32,6 +33,7 @@ class InputSpec(BaseModel):
 	input_id: int
 	name: str
 	database: Path
+	exp_id: str
 	read_pool_id: str
 	decoding_run_label: str
 	items: list[ItemSpec]
@@ -79,8 +81,18 @@ class PlotConfig(BaseModel):
 	model_config = ConfigDict(extra="forbid")
 
 	output_path: Path
+	show_figures: bool = False
+	figure_width_per_input: float = 6.0
+	figure_height: float = 5.0
 	inputs: list[InputSpec]
 	scripts: list[ScriptSpec]
+
+	@field_validator("figure_width_per_input", "figure_height")
+	@classmethod
+	def _validate_figure_dimension(cls, value: float) -> float:
+		if value <= 0:
+			raise ValueError("Global figure dimensions must be > 0.")
+		return value
 
 	@model_validator(mode="before")
 	@classmethod
@@ -103,7 +115,14 @@ class PlotConfig(BaseModel):
 			input_id_raw, payload = PlotConfig._extract_anchor_and_payload(
 				raw_entry=raw_input,
 				entry_kind="input",
-				payload_field_names={"name", "database", "read_pool_id", "items", "decoding_run_label"},
+				payload_field_names={
+					"name",
+					"database",
+					"exp_id",
+					"read_pool_id",
+					"items",
+					"decoding_run_label",
+				},
 			)
 
 			normalized_payload = dict(payload)
@@ -212,8 +231,18 @@ class ScriptExecutionContext(BaseModel):
 	model_config = ConfigDict(extra="forbid")
 
 	output_path: Path
+	show_figures: bool = False
+	figure_width_per_input: float = 6.0
+	figure_height: float = 5.0
 	inputs: list[InputSpec]
 	script: ScriptSpec
+
+	@field_validator("figure_width_per_input", "figure_height")
+	@classmethod
+	def _validate_figure_dimension(cls, value: float) -> float:
+		if value <= 0:
+			raise ValueError("Global figure dimensions must be > 0.")
+		return value
 
 
 class PlotScriptProtocol(Protocol):

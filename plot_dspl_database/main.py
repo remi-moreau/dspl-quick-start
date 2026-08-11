@@ -11,11 +11,13 @@ import yaml
 from decoding_ref_coverage import DecodingRefCoverageScript
 from decoding_run_metrics import DecodingRunMetricsScript
 from protocols import PlotConfig, PlotScriptProtocol, ScriptExecutionContext
+from read_pool_stats import ReadPoolStatsScript
 
 
 SCRIPT_REGISTRY: dict[str, Type[PlotScriptProtocol]] = {
 	DecodingRefCoverageScript.script_name: DecodingRefCoverageScript,
 	DecodingRunMetricsScript.script_name: DecodingRunMetricsScript,
+	ReadPoolStatsScript.script_name: ReadPoolStatsScript,
 }
 
 
@@ -56,6 +58,9 @@ def main() -> None:
 
 		context = ScriptExecutionContext(
 			output_path=output_path,
+			show_figures=validated_config.show_figures,
+			figure_width_per_input=validated_config.figure_width_per_input,
+			figure_height=validated_config.figure_height,
 			inputs=validated_config.inputs,
 			script=script_spec,
 		)
