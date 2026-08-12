@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from textwrap import wrap
 from typing import Iterable
 
 import matplotlib.pyplot as plt
@@ -121,6 +122,16 @@ def build_metadata_pages(
 	page: Figure | None = None
 	y_position = 0.0
 
+	def wrapped_lines(text: str, width: int) -> tuple[str, ...]:
+		return tuple(
+			wrap(
+				text,
+				width=width,
+				break_long_words=False,
+				break_on_hyphens=False,
+			)
+		) or ("",)
+
 	def start_page() -> tuple[Figure, float]:
 		new_page = plt.figure(figsize=(11.69, 16.53))
 		new_page.patch.set_facecolor("white")
@@ -128,19 +139,36 @@ def build_metadata_pages(
 		return new_page, 0.915
 
 	for heading, description, lines in blocks:
-		required_height = 0.055 + (0.030 if description else 0.0) + 0.024 * len(lines)
-		if page is None or y_position - required_height < 0.055:
+		description_lines = wrapped_lines(description, 145) if description else ()
+		content_lines = tuple(
+			wrapped_line
+			for line in lines
+			for wrapped_line in wrapped_lines(line, 155)
+		)
+		if page is None or y_position - 0.077 < 0.055:
 			if page is not None:
 				pages.append(page)
 			page, y_position = start_page()
 
 		page.text(0.06, y_position, heading, fontsize=14, fontweight="bold", va="top")
 		y_position -= 0.028
-		if description:
-			page.text(0.075, y_position, description, fontsize=9.5, va="top", wrap=True)
-			y_position -= 0.034
-		for line in lines:
-			page.text(0.075, y_position, line, fontsize=9, va="top", wrap=True)
+		for line in description_lines:
+			if y_position - 0.022 < 0.055:
+				pages.append(page)
+				page, y_position = start_page()
+				page.text(0.06, y_position, f"{heading} (continued)", fontsize=14, fontweight="bold", va="top")
+				y_position -= 0.028
+			page.text(0.075, y_position, line, fontsize=9.5, va="top")
+			y_position -= 0.022
+		if description_lines:
+			y_position -= 0.012
+		for line in content_lines:
+			if y_position - 0.024 < 0.055:
+				pages.append(page)
+				page, y_position = start_page()
+				page.text(0.06, y_position, f"{heading} (continued)", fontsize=14, fontweight="bold", va="top")
+				y_position -= 0.028
+			page.text(0.075, y_position, line, fontsize=9, va="top")
 			y_position -= 0.024
 		y_position -= 0.014
 

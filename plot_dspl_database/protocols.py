@@ -81,6 +81,7 @@ class PlotConfig(BaseModel):
 	model_config = ConfigDict(extra="forbid")
 
 	output_path: Path
+	merge_script_pdfs: bool = False
 	show_figures: bool = False
 	figure_width_per_input: float = 6.0
 	figure_height: float = 5.0

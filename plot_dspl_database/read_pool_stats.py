@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import sqlite3
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,7 +12,7 @@ import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from scipy.stats import spearmanr
 
 from optional_script_utils import (
@@ -43,7 +43,8 @@ DEFAULT_PLOT_TITLES: dict[str, str] = {
 DEFAULT_PLOT_EXPLANATIONS: dict[str, str] = {
     "ref-coverage-in-read-pool_distribution": (
         "References are assigned to common normalized-coverage bins. Bars distinguish configured items, "
-        "while every reference is normalized by the mean coverage across all selected items."
+        "every reference coverage is normalized by the mean across all selected items, and each item's "
+        "bin counts are divided by that item's total reference count."
     ),
     "ref-coverage-in-read-pool_vs_delta-g_scatter": (
         "Each point is one reference with X=delta G and Y=read count divided by the global mean read count. "
@@ -107,6 +108,8 @@ class ReadPoolStatsSettings(BaseModel):
 
 class DistributionPlotSettings(PlotTextSettings):
     read_count_values_per_bin: int | None = None
+    bin_width_mode: Literal["per_input_read_count", "shared_normalized"] = "per_input_read_count"
+    bin_width_reference: Literal["pooled"] = "pooled"
 
     @field_validator("read_count_values_per_bin")
     @classmethod
@@ -114,6 +117,14 @@ class DistributionPlotSettings(PlotTextSettings):
         if value is not None and value <= 0:
             raise ValueError("read_count_values_per_bin must be > 0 or null.")
         return value
+
+    @model_validator(mode="after")
+    def _validate_shared_normalized_binning(self) -> "DistributionPlotSettings":
+        if self.bin_width_mode == "shared_normalized" and self.read_count_values_per_bin is None:
+            raise ValueError(
+                "shared_normalized binning requires read_count_values_per_bin to be an integer."
+            )
+        return self
 
 
 class ScatterPlotSettings(PlotTextSettings):
@@ -222,6 +233,51 @@ def compute_distribution_bin_edges(
     last_edge_exclusive = ((maximum_count // bin_width) + 1) * bin_width
     raw_edges = np.arange(first_edge, last_edge_exclusive + bin_width, bin_width, dtype=float)
     return raw_edges / global_mean_coverage
+
+
+def compute_pooled_mean_coverage(reference_dfs: list[pd.DataFrame]) -> float:
+    if not reference_dfs:
+        raise ValueError("Cannot compute pooled coverage without input datasets.")
+    read_counts = pd.concat(
+        [reference_df["n_reads_on_reference"] for reference_df in reference_dfs],
+        ignore_index=True,
+    )
+    numeric_counts = pd.to_numeric(read_counts, errors="coerce")
+    if numeric_counts.empty or numeric_counts.isna().any() or (numeric_counts < 0).any():
+        raise ValueError("Cannot compute pooled coverage from invalid read counts.")
+    pooled_mean = float(numeric_counts.mean())
+    if not np.isfinite(pooled_mean) or pooled_mean <= 0:
+        raise ValueError("Pooled mean reference coverage must be > 0.")
+    return pooled_mean
+
+
+def compute_shared_normalized_bin_edges(
+    reference_dfs: list[pd.DataFrame],
+    pooled_mean_coverage: float,
+    read_count_values_per_bin: int,
+) -> np.ndarray:
+    if pooled_mean_coverage <= 0:
+        raise ValueError("pooled_mean_coverage must be > 0.")
+    if read_count_values_per_bin <= 0:
+        raise ValueError("read_count_values_per_bin must be > 0.")
+    if not reference_dfs:
+        raise ValueError("Cannot compute shared bins without input datasets.")
+
+    normalized_values = pd.concat(
+        [reference_df["normalized_read_pool_coverage"] for reference_df in reference_dfs],
+        ignore_index=True,
+    )
+    numeric_values = pd.to_numeric(normalized_values, errors="coerce")
+    if numeric_values.empty or numeric_values.isna().any() or (numeric_values < 0).any():
+        raise ValueError("Cannot compute shared bins from invalid normalized coverage values.")
+
+    bin_width = float(read_count_values_per_bin) / pooled_mean_coverage
+    maximum_coverage = float(numeric_values.max())
+    n_bins = max(1, int(np.floor(maximum_coverage / bin_width)) + 1)
+    edges = np.arange(n_bins + 1, dtype=float) * bin_width
+    if edges[-1] <= maximum_coverage:
+        edges = np.append(edges, edges[-1] + bin_width)
+    return edges
 
 
 def compute_spearman_statistics(reference_df: pd.DataFrame) -> CorrelationStatistics:
@@ -438,12 +494,25 @@ class ReadPoolStatsScript:
         plot_name = "ref-coverage-in-read-pool_distribution"
         plot_settings = DistributionPlotSettings.model_validate(self.plot_specs_by_name[plot_name].settings)
         figure, axes = self._make_axes_grid()
+        reference_dfs = [input_model.reference_df for input_model in self.input_models]
+        shared_bin_edges: np.ndarray | None = None
+        if plot_settings.bin_width_mode == "shared_normalized":
+            pooled_mean_coverage = compute_pooled_mean_coverage(reference_dfs)
+            shared_bin_edges = compute_shared_normalized_bin_edges(
+                reference_dfs,
+                pooled_mean_coverage,
+                plot_settings.read_count_values_per_bin,
+            )
 
         for axis, input_model in zip(axes, self.input_models):
-            bin_edges = compute_distribution_bin_edges(
-                input_model.reference_df,
-                input_model.global_mean_coverage,
-                plot_settings.read_count_values_per_bin,
+            bin_edges = (
+                shared_bin_edges
+                if shared_bin_edges is not None
+                else compute_distribution_bin_edges(
+                    input_model.reference_df,
+                    input_model.global_mean_coverage,
+                    plot_settings.read_count_values_per_bin,
+                )
             )
             bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
             bin_widths = np.diff(bin_edges)
@@ -457,10 +526,11 @@ class ReadPoolStatsScript:
                     "normalized_read_pool_coverage",
                 ].to_numpy(dtype=float)
                 counts, _ = np.histogram(item_values, bins=bin_edges)
+                normalized_counts = counts / len(item_values)
                 offsets = (index - (len(item_ids) - 1) / 2.0) * slot_widths
                 axis.bar(
                     bin_centers + offsets,
-                    counts,
+                    normalized_counts,
                     width=slot_widths,
                     color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
                     alpha=0.82,
@@ -471,7 +541,9 @@ class ReadPoolStatsScript:
 
             axis.set_title(input_model.input_spec.name)
             axis.set_xlabel("Normalized read-pool coverage")
-            axis.set_ylabel("Number of references")
+            axis.set_ylabel("Fraction of item references")
+            if shared_bin_edges is not None:
+                axis.set_xlim(0.0, float(shared_bin_edges[-1]))
             axis.grid(axis="y", alpha=0.25, linestyle="--")
             axis.legend(fontsize=8)
 
@@ -610,6 +682,36 @@ class ReadPoolStatsScript:
                     f"{model.global_mean_coverage:.6g} reads/reference"
                     for model in self.input_models
                 )
+                if isinstance(settings, DistributionPlotSettings) and settings.bin_width_mode == "shared_normalized":
+                    reference_dfs = [model.reference_df for model in self.input_models]
+                    pooled_mean = compute_pooled_mean_coverage(reference_dfs)
+                    shared_edges = compute_shared_normalized_bin_edges(
+                        reference_dfs,
+                        pooled_mean,
+                        settings.read_count_values_per_bin,
+                    )
+                    normalized_bin_width = float(shared_edges[1] - shared_edges[0])
+                    lines.extend(
+                        [
+                            f"Shared normalized bins: pooled_mean={pooled_mean:.6g} reads/reference, "
+                            f"normalized_width={normalized_bin_width:.6g}, range=[0, {shared_edges[-1]:.6g}), "
+                            "NumPy intervals are left-closed/right-open except the final right-closed bin; "
+                            "the final edge is strictly above the observed maximum",
+                            *(
+                                f"{model.input_spec.name}: effective raw-read width="
+                                f"{model.global_mean_coverage * normalized_bin_width:.6g} reads/bin, "
+                                f"max normalized coverage="
+                                f"{model.reference_df['normalized_read_pool_coverage'].max():.6g}"
+                                for model in self.input_models
+                            ),
+                            *(
+                                f"{model.input_spec.name} / {item.name}: N_item="
+                                f"{int((model.reference_df['item_id'] == item.item_id).sum())}"
+                                for model in self.input_models
+                                for item in model.input_spec.items
+                            ),
+                        ]
+                    )
             elif plot_spec.name == "ref-coverage-in-read-pool_vs_delta-g_scatter":
                 lines.extend(self._scatter_metadata_lines())
             sections.append(

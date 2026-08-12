@@ -16,12 +16,16 @@ from optional_script_utils import save_figure_page_and_png  # noqa: E402
 from protocols import InputSpec, ItemSpec, PlotSpec, ScriptExecutionContext, ScriptSpec  # noqa: E402
 from read_pool_stats import (  # noqa: E402
     DistributionPlotSettings,
+    InputReadModel,
     MeanInBinPlotSettings,
+    PoolSnapshot,
     ReadPoolStatsScript,
     ReadPoolStatsSettings,
     compute_distribution_bin_edges,
     compute_global_delta_g_bins,
+    compute_pooled_mean_coverage,
     compute_regression_statistics,
+    compute_shared_normalized_bin_edges,
     compute_spearman_statistics,
     normalize_reference_coverage,
 )
@@ -146,6 +150,10 @@ def test_settings_are_strict_and_validate_binning() -> None:
         MeanInBinPlotSettings.model_validate({"min_points_per_bin": 0})
     with pytest.raises(ValidationError):
         DistributionPlotSettings.model_validate({"read_count_values_per_bin": 0})
+    with pytest.raises(ValidationError, match="requires read_count_values_per_bin"):
+        DistributionPlotSettings.model_validate(
+            {"bin_width_mode": "shared_normalized", "read_count_values_per_bin": None}
+        )
     with pytest.raises(ValidationError):
         _script_context(Path("unused.db"), Path("plots"), figure_width_per_input=0)
 
@@ -179,6 +187,47 @@ def test_distribution_can_group_multiple_integer_read_counts_per_bin() -> None:
     )
 
     assert bin_edges.tolist() == pytest.approx([0.0, 1.2, 2.4, 3.6])
+
+
+def test_shared_bins_use_reference_weighted_pooled_mean_and_strict_upper_edge() -> None:
+    first, first_mean = normalize_reference_coverage(
+        pd.DataFrame({"n_reads_on_reference": [0, 10]})
+    )
+    second, second_mean = normalize_reference_coverage(
+        pd.DataFrame({"n_reads_on_reference": [100]})
+    )
+
+    pooled_mean = compute_pooled_mean_coverage([first, second])
+    bin_edges = compute_shared_normalized_bin_edges(
+        [first, second],
+        pooled_mean_coverage=pooled_mean,
+        read_count_values_per_bin=55,
+    )
+
+    assert first_mean == pytest.approx(5.0)
+    assert second_mean == pytest.approx(100.0)
+    assert pooled_mean == pytest.approx((2 * first_mean + second_mean) / 3)
+    assert bin_edges.tolist() == pytest.approx([0.0, 1.5, 3.0])
+    assert bin_edges[-1] > max(first["normalized_read_pool_coverage"].max(), 1.0)
+    assert first_mean * (bin_edges[1] - bin_edges[0]) == pytest.approx(7.5)
+    assert second_mean * (bin_edges[1] - bin_edges[0]) == pytest.approx(150.0)
+
+
+def test_shared_bins_add_an_upper_bin_when_maximum_is_exactly_on_an_edge() -> None:
+    normalized = pd.DataFrame(
+        {
+            "n_reads_on_reference": [0, 10, 20],
+            "normalized_read_pool_coverage": [0.0, 1.0, 2.0],
+        }
+    )
+
+    bin_edges = compute_shared_normalized_bin_edges(
+        [normalized],
+        pooled_mean_coverage=10.0,
+        read_count_values_per_bin=10,
+    )
+
+    assert bin_edges.tolist() == pytest.approx([0.0, 1.0, 2.0, 3.0])
 
 
 def test_scatter_statistics_are_global_and_ignore_missing_delta_g() -> None:
@@ -225,6 +274,23 @@ def test_missing_view_fails_with_schema_update_guidance(tmp_path: Path) -> None:
         script._build_read_model_for_input(_input_spec(database))
 
 
+def test_read_model_excludes_items_not_selected_in_configuration(tmp_path: Path) -> None:
+    database = tmp_path / "configured-items.db"
+    _create_snapshot_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            INSERT INTO pool_reference_stats_source VALUES
+                ('test-exp', 'test-pool', 'enc-run', 99, 0, 99, NULL, 50)
+            """
+        )
+    script = ReadPoolStatsScript(_script_context(database, tmp_path / "plots"))
+
+    input_model = script._build_read_model_for_input(_input_spec(database))
+
+    assert set(input_model.reference_df["item_id"]) == {0, 1}
+
+
 def test_read_pool_figure_size_is_configurable_for_one_input(tmp_path: Path) -> None:
     database = tmp_path / "sized-figure.db"
     _create_snapshot_database(database)
@@ -243,6 +309,110 @@ def test_read_pool_figure_size_is_configurable_for_one_input(tmp_path: Path) -> 
         assert figure.get_size_inches().tolist() == pytest.approx([9.0, 5.5])
     finally:
         plt.close(figure)
+
+
+def test_distribution_normalizes_each_item_population_on_y_axis(tmp_path: Path) -> None:
+    database = tmp_path / "normalized-y.db"
+    _create_snapshot_database(database)
+    script = ReadPoolStatsScript(_script_context(database, tmp_path / "plots"))
+    script.input_models = [script._build_read_model_for_input(_input_spec(database))]
+
+    figure = script._plot_distribution()
+
+    try:
+        axis = figure.axes[0]
+        assert sum(bar.get_height() for bar in axis.patches) == pytest.approx(2.0)
+        assert axis.get_ylabel() == "Fraction of item references"
+    finally:
+        plt.close(figure)
+
+
+def test_shared_normalized_mode_uses_common_bar_widths_and_reports_effective_widths() -> None:
+    item_ids = [0, 0, 1, 1]
+    input_specs = [_input_spec(Path(f"unused-{index}.db")) for index in range(2)]
+    input_specs[0].name = "Low coverage"
+    input_specs[1].name = "High coverage"
+    reference_dfs = []
+    means = []
+    for raw_counts in ([0, 10, 20, 30], [0, 100, 200, 300]):
+        normalized_df, mean = normalize_reference_coverage(
+            pd.DataFrame(
+                {
+                    "item_id": item_ids,
+                    "delta_g": [None] * 4,
+                    "n_reads_on_reference": raw_counts,
+                }
+            )
+        )
+        reference_dfs.append(normalized_df)
+        means.append(mean)
+    snapshot = PoolSnapshot(
+        exp_id="test-exp",
+        read_pool_id="test-pool",
+        enc_run_id="enc-run",
+        n_reads_total=1,
+        n_reads_mapped=1,
+        n_reads_unmapped=0,
+        n_fastq_total=1,
+        source_max_position_exclusive=1,
+        refreshed_at="2026-08-12",
+        snapshot_version=1,
+    )
+    context = ScriptExecutionContext(
+        output_path=Path("plots"),
+        inputs=input_specs,
+        script=ScriptSpec(
+            name="read_pool_stats",
+            plot_settings=[
+                PlotSpec(
+                    name="ref-coverage-in-read-pool_distribution",
+                    settings={
+                        "read_count_values_per_bin": 50,
+                        "bin_width_mode": "shared_normalized",
+                        "bin_width_reference": "pooled",
+                    },
+                )
+            ],
+        ),
+    )
+    script = ReadPoolStatsScript(context)
+    script.input_models = [
+        InputReadModel(
+            input_spec=input_spec,
+            snapshot=snapshot,
+            reference_df=reference_df,
+            global_mean_coverage=mean,
+            has_delta_g=False,
+        )
+        for input_spec, reference_df, mean in zip(input_specs, reference_dfs, means)
+    ]
+
+    figure = script._plot_distribution()
+    metadata_pages = script._build_metadata_pages()
+    rendered_text = "\n".join(
+        text.get_text() for page in metadata_pages for text in page.texts
+    )
+
+    try:
+        first_widths = [bar.get_width() for bar in figure.axes[0].patches]
+        second_widths = [bar.get_width() for bar in figure.axes[1].patches]
+        assert first_widths == pytest.approx(second_widths)
+        assert figure.axes[0].get_xlim() == pytest.approx(figure.axes[1].get_xlim())
+        for axis in figure.axes:
+            bars_per_item = len(axis.patches) // 2
+            assert sum(bar.get_height() for bar in axis.patches[:bars_per_item]) == pytest.approx(1.0)
+            assert sum(bar.get_height() for bar in axis.patches[bars_per_item:]) == pytest.approx(1.0)
+        pooled_mean = compute_pooled_mean_coverage(reference_dfs)
+        normalized_width = 50 / pooled_mean
+        assert f"pooled_mean={pooled_mean:.6g}" in rendered_text
+        assert f"effective raw-read width={means[0] * normalized_width:.6g}" in rendered_text
+        assert f"effective raw-read width={means[1] * normalized_width:.6g}" in rendered_text
+        assert "Low coverage / Item zero: N_item=2" in rendered_text
+        assert "High coverage / Item one: N_item=2" in rendered_text
+    finally:
+        plt.close(figure)
+        for page in metadata_pages:
+            plt.close(page)
 
 
 def test_distribution_metadata_reports_normalization_denominator(tmp_path: Path) -> None:

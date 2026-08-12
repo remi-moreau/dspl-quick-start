@@ -56,11 +56,11 @@ DEFAULT_PLOT_TITLES: dict[str, str] = {
 DEFAULT_PLOT_EXPLANATIONS: dict[str, str] = {
     "ref-coverage-at-image-decoding_distribution": (
         "Each bar shows the normalized number of references per image-decoding coverage bin. "
-        "For each item, statistics mu_cov, sigma_cov and m_cov summarize the aggregated distribution."
+        "Per-item distribution statistics are reported in the metadata."
     ),
     "ref-coverage-at-ref-decoding_distribution": (
         "Coverage at first perfect decoding for references decoded at least once is shown on finite bins; "
-        "references never decoded are grouped at infinity."
+        "references never decoded are grouped at infinity. Statistics describe finite coverage values only."
     ),
     "ref-coverage-at-ref-decoding_vs_delta-g_scatter": (
         "Each point is a reference with X=delta G and Y=mean positive coverage at first perfect decoding; "
@@ -241,6 +241,29 @@ JOIN eligible_run_item e
  AND e.item_id = m.item_id
 ORDER BY m.dec_run_id ASC, m.item_id ASC, m.region_id ASC, m.position_id ASC
 """
+
+
+def format_distribution_statistics(values: pd.Series) -> str:
+    numeric = pd.to_numeric(values, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+    if numeric.empty:
+        return "n=0, mu=N/A, sigma=N/A, median=N/A, std=N/A"
+    sigma = float(numeric.std(ddof=0))
+    sample_std = float(numeric.std(ddof=1)) if len(numeric) >= 2 else float("nan")
+    sample_std_text = f"{sample_std:.4g}" if np.isfinite(sample_std) else "N/A"
+    return (
+        f"n={len(numeric)}, mu={numeric.mean():.4g}, sigma={sigma:.4g}, "
+        f"median={numeric.median():.4g}, std={sample_std_text}"
+    )
+
+
+def reduce_ticks(tick_candidates: list[float], max_ticks: int) -> list[float]:
+    if not tick_candidates:
+        return []
+    tick_step = max(1, int(np.ceil(len(tick_candidates) / float(max_ticks))))
+    ticks = tick_candidates[::tick_step]
+    if ticks[-1] != tick_candidates[-1]:
+        ticks.append(tick_candidates[-1])
+    return ticks
 
 SQL_QUERY_LABEL_RUNS_TOTAL = """
 SELECT COUNT(*) AS n_runs_total
@@ -442,7 +465,12 @@ class DecodingRefCoverageScript:
                 f"Figure settings: {figure_metadata or '{}'}",
                 f"Inputs plotted: {', '.join(available_inputs) if available_inputs else 'none'}",
             ]
-            if plot_spec.name == "ref-coverage-at-ref-decoding_vs_delta-g_scatter":
+            if plot_spec.name in {
+                "ref-coverage-at-image-decoding_distribution",
+                "ref-coverage-at-ref-decoding_distribution",
+            }:
+                metadata_lines.extend(self._distribution_metadata_lines(plot_spec.name))
+            elif plot_spec.name == "ref-coverage-at-ref-decoding_vs_delta-g_scatter":
                 metadata_lines.extend(self._spearman_metadata_lines())
             elif plot_spec.name == "underdecoded-ref-proba_vs_delta-g_mean-in-bin":
                 metadata_lines.extend(
@@ -456,6 +484,33 @@ class DecodingRefCoverageScript:
                 )
             )
         return build_metadata_pages(self.script_name, script_metadata_lines, sections)
+
+    def _distribution_metadata_lines(self, plot_name: str) -> list[str]:
+        lines: list[str] = []
+        for input_model in self.input_models:
+            lines.append(f"{input_model.input_spec.name}:")
+            item_names = self._item_name_map(input_model.input_spec)
+            for item_id, item_name in item_names.items():
+                if plot_name == "ref-coverage-at-image-decoding_distribution":
+                    values = input_model.rows_df.loc[
+                        input_model.rows_df["item_id"] == item_id,
+                        "count_used_for_consensus",
+                    ]
+                    suffix = ""
+                else:
+                    values = input_model.decoded_at_least_once_reference_level_df.loc[
+                        input_model.decoded_at_least_once_reference_level_df["item_id"] == item_id,
+                        "mean_positive_coverage",
+                    ]
+                    drop_out_count = int(
+                        (
+                            input_model.never_decoded_reference_level_df["item_id"]
+                            == item_id
+                        ).sum()
+                    )
+                    suffix = f", drop_outs={drop_out_count}"
+                lines.append(f"  {item_name}: {format_distribution_statistics(values)}{suffix}")
+        return lines
 
     def _spearman_metadata_lines(self) -> list[str]:
         lines: list[str] = []
@@ -669,7 +724,7 @@ class DecodingRefCoverageScript:
     def _compute_image_decoding_distribution(
         self,
         input_model: InputReadModel,
-    ) -> tuple[list[int], dict[int, np.ndarray], dict[int, tuple[float, float, float]]]:
+    ) -> tuple[list[int], dict[int, np.ndarray]]:
         rows_df = input_model.rows_df.copy()
         rows_df["count_used_for_consensus"] = (
             pd.to_numeric(rows_df["count_used_for_consensus"], errors="coerce").fillna(0).astype(int)
@@ -693,7 +748,6 @@ class DecodingRefCoverageScript:
         run_item_histograms = run_item_histograms.reindex(cluster_sizes, axis=1, fill_value=0)
 
         normalized_by_item: dict[int, np.ndarray] = {}
-        moments_by_item: dict[int, tuple[float, float, float]] = {}
         for item_id in sorted(self._item_name_map(input_model.input_spec).keys()):
             try:
                 item_histograms = run_item_histograms.xs(item_id, level="item_id")
@@ -709,21 +763,7 @@ class DecodingRefCoverageScript:
                 aggregated_counts = item_histograms.sum(axis=0).to_numpy(dtype=float)
                 normalized_distribution = aggregated_counts / total_refs_item
             normalized_by_item[item_id] = normalized_distribution
-
-            support = np.array(cluster_sizes, dtype=float)
-            total_prob = float(normalized_distribution.sum())
-            if total_prob <= 0:
-                moments_by_item[item_id] = (0.0, 0.0, 0.0)
-            else:
-                probs = normalized_distribution / total_prob
-                mu_cov = float(np.sum(support * probs))
-                var_cov = float(np.sum(((support - mu_cov) ** 2) * probs))
-                sigma_cov = float(np.sqrt(max(var_cov, 0.0)))
-                cdf = np.cumsum(probs)
-                median_idx = int(np.searchsorted(cdf, 0.5, side="left"))
-                median_idx = min(max(median_idx, 0), len(support) - 1)
-                moments_by_item[item_id] = (mu_cov, sigma_cov, float(support[median_idx]))
-        return cluster_sizes, normalized_by_item, moments_by_item
+        return cluster_sizes, normalized_by_item
 
     def _plot_ref_coverage_at_image_decoding_distribution(self) -> Figure:
         plot_name = "ref-coverage-at-image-decoding_distribution"
@@ -732,7 +772,7 @@ class DecodingRefCoverageScript:
         )
         fig, axes = self._make_axes_grid(len(self.input_models))
         for ax, input_model in zip(axes, self.input_models):
-            cluster_sizes, normalized_by_item, moments_by_item = self._compute_image_decoding_distribution(input_model)
+            cluster_sizes, normalized_by_item = self._compute_image_decoding_distribution(input_model)
             if not cluster_sizes:
                 ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
                 continue
@@ -751,7 +791,6 @@ class DecodingRefCoverageScript:
             bar_width = 1.0 / max(len(item_ids), 1)
             names = self._item_name_map(input_model.input_spec)
             for idx, item_id in enumerate(item_ids):
-                mu_cov, sigma_cov, m_cov = moments_by_item.get(item_id, (0.0, 0.0, 0.0))
                 offsets = x_plot + (idx - (len(item_ids) - 1) / 2.0) * bar_width
                 ax.bar(
                     offsets,
@@ -761,7 +800,7 @@ class DecodingRefCoverageScript:
                     alpha=PLOT_STYLE_MAP["cluster_size_distribution"]["alpha"],
                     edgecolor="none",
                     linewidth=0.0,
-                    label=f"{names.get(item_id, str(item_id))} (mu={mu_cov:.1f}, sigma={sigma_cov:.1f}, m={m_cov:.1f})",
+                    label=names.get(item_id, str(item_id)),
                 )
 
             ax.set_title(input_model.input_spec.name)
@@ -787,6 +826,7 @@ class DecodingRefCoverageScript:
         )
         fig, axes = self._make_axes_grid(len(self.input_models))
         shared_infinity_x: float | None = None
+        shared_finite_ticks: list[float] | None = None
         if plot_settings.same_x_scale_across_inputs:
             all_finite_values = pd.concat(
                 [
@@ -798,6 +838,21 @@ class DecodingRefCoverageScript:
             shared_infinity_x = compute_infinity_bin_center(
                 all_finite_values,
                 plot_settings.bin_width,
+            )
+            shared_finite_tick_candidates = sorted(
+                {
+                    float(
+                        np.floor(value / plot_settings.bin_width)
+                        * plot_settings.bin_width
+                        + (plot_settings.bin_width / 2.0)
+                    )
+                    for value in pd.to_numeric(all_finite_values, errors="coerce").dropna()
+                    if np.isfinite(value)
+                }
+            )
+            shared_finite_ticks = reduce_ticks(
+                shared_finite_tick_candidates,
+                plot_settings.max_xticks,
             )
 
         for ax, input_model in zip(axes, self.input_models):
@@ -890,13 +945,11 @@ class DecodingRefCoverageScript:
                     ].tolist()
                 }
             )
-            if finite_tick_candidates:
-                tick_step = max(1, int(np.ceil(len(finite_tick_candidates) / float(plot_settings.max_xticks))))
-                finite_ticks = finite_tick_candidates[::tick_step]
-                if finite_ticks[-1] != finite_tick_candidates[-1]:
-                    finite_ticks.append(finite_tick_candidates[-1])
-            else:
-                finite_ticks = []
+            finite_ticks = (
+                shared_finite_ticks
+                if shared_finite_ticks is not None
+                else reduce_ticks(finite_tick_candidates, plot_settings.max_xticks)
+            )
             xticks = [*finite_ticks, infinity_x]
             ax.set_xticks(xticks)
             ax.set_xticklabels(

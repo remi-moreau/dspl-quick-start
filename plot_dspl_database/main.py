@@ -10,6 +10,7 @@ import yaml
 
 from decoding_ref_coverage import DecodingRefCoverageScript
 from decoding_run_metrics import DecodingRunMetricsScript
+from pdf_artifacts import MERGED_PDF_FILENAME, merge_pdf_files
 from protocols import PlotConfig, PlotScriptProtocol, ScriptExecutionContext
 from read_pool_stats import ReadPoolStatsScript
 
@@ -50,6 +51,7 @@ def main() -> None:
 
 	config_dir = args.config.resolve().parent
 	output_path = (config_dir / validated_config.output_path).resolve()
+	script_pdf_paths: list[Path] = []
 
 	for script_spec in validated_config.scripts:
 		script_type = SCRIPT_REGISTRY.get(script_spec.name)
@@ -68,6 +70,14 @@ def main() -> None:
 		script_instance = script_type(context)
 		print(f"[orchestrator] running script={script_spec.name}")
 		script_instance.run()
+		script_pdf_paths.append(
+			output_path / script_spec.name / f"{script_spec.name}.pdf"
+		)
+
+	if validated_config.merge_script_pdfs:
+		merged_pdf_path = output_path / MERGED_PDF_FILENAME
+		merge_pdf_files(script_pdf_paths, merged_pdf_path)
+		print(f"[orchestrator] merged PDF={merged_pdf_path}")
 
 
 if __name__ == "__main__":

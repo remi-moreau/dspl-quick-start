@@ -47,6 +47,8 @@ Every figure accepts `same_x_scale_across_inputs` and `same_y_scale_across_input
 
 Top-level `figure_width_per_input` and `figure_height` define the initial canvas size for every plotting script. The `read_pool_stats` distribution setting `read_count_values_per_bin: N` groups `N` consecutive integer read-count values in each bar class before converting the X axis to normalized coverage. Set it to `null` to retain Freedman-Diaconis binning on normalized coverage.
 
+Top-level `merge_script_pdfs: true` creates `merged_plots.pdf` under `output_path` after every configured script succeeds. Pages follow script order in the YAML, and the individual script PDFs are preserved. The default value is `false`.
+
 For `ref-coverage-at-ref-decoding_vs_delta-g_scatter`, metadata report Spearman rho and its p-value per input and item. Only finite decoded-reference pairs are included; graphical drop-outs at infinity are excluded.
 
 ## 2.5. Other rules

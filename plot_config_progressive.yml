@@ -1,5 +1,5 @@
-
-output_path: plots/paper_motif_progressive/
+merge_script_pdfs: true
+output_path: plots/progressive_decoding/
 show_figures: false
 figure_width_per_input: 6.0
 figure_height: 5.5
@@ -12,9 +12,9 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
       read_pool_id: barcode01_agilent
       items:
         - 0:
-            name: JPEGDNA
-        - 2:
-            name: Motif-PAIRCODE
+            name: JPEGDNA_Bird
+        # - 2:
+        #     name: Motif-PAIRCODE_Bird
       decoding_run_label: barcode01_agilent_alignment_decoding
   - 2:
       name: Dynegene
@@ -23,9 +23,9 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
       read_pool_id: barcode02_dynegene
       items:
         - 0:
-            name: JPEGDNA
-        - 2:
-            name: Motif-PAIRCODE
+            name: JPEGDNA_Bird
+        # - 2:
+        #     name: Motif-PAIRCODE_Bird
       decoding_run_label: barcode02_dynegene_alignment_decoding
   - 3:
       name: Genscript
@@ -34,9 +34,9 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
       read_pool_id: barcode03_genscript
       items:
         - 0:
-            name: JPEGDNA
-        - 1:
-            name: Motif-PAIRCODE
+            name: JPEGDNA_Bird
+        # - 1:
+        #     name: Motif-PAIRCODE_Bird
       decoding_run_label: barcode03_genscript_alignment_decoding
   - 4:
       name: Agilent sureprint Hifi
@@ -44,36 +44,38 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
       database: /home/remi-moreau/Documents/3_STAGE_RECHERCHE/5_DATA/2026-08_jpegdna_first_wetlab_dspl_database/JPEGDNA_WETLAB.db
       read_pool_id: new_wetlab_six_images
       items:
-        - 0:
-            name: Chest
-        - 1:
-            name: Woman
-        - 2:
-            name: Burger
+        # - 0:
+        #     name: Chest
+        # - 1:
+        #     name: Woman
+        # - 2:
+        #     name: Burger
         - 3:
-            name: Bird
-        - 4:
-            name: Night
-        - 5:
-            name: Day
+            name: JPEGDNA_Bird
+        # - 4:
+        #     name: Night
+        # - 5:
+        #     name: Day
+      decoding_run_label: 2nd_run_JPEGDNA_Wetlab
   - 5:
       name: Agilent sureprint Hifi post-encapsulation
       exp_id: six_images
       database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode04_six_images.db
       read_pool_id: new_wetlab_six_images
       items:
-        - 0:
-            name: Chest
-        - 1:
-            name: Woman
+        # - 0:
+        #     name: Chest
+        # - 1:
+        #     name: Woman
         # - 2:
         #     name: Burger
         - 3:
-            name: Bird
-        - 4:
-            name: Night
-        - 5:
-            name: Day
+            name: JPEGDNA_Bird
+        # - 4:
+        #     name: Night
+        # - 5:
+        #     name: Day
+      decoding_run_label: barcode04_six_images_alignment_decoding
      
 scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level yes/no plotting switch)
   - read_pool_stats:
@@ -83,7 +85,7 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
             same_x_scale_across_inputs: true
             same_y_scale_across_inputs: true
             title: "Reference count distribution over normalized read-pool coverage"
-            description: "References are grouped by item in common coverage bins; coverage is normalized by the global mean across every selected reference, including zero-coverage references."
+            description: "References are grouped by item in common coverage bins; X coverage is normalized by the global mean across every selected reference, while each Y bin is divided by that item's total reference count."
             read_count_values_per_bin: 500
         # - ref-coverage-in-read-pool_vs_delta-g_scatter:
         #     same_x_scale_across_inputs: true

@@ -1,7 +1,7 @@
 merge_script_pdfs: true
-output_path: plots/delta_g/
+output_path: plots/motif_paircode
 show_figures: false
-figure_width_per_input: 6.0
+figure_width_per_input: 10.0
 figure_height: 5.5
 
 inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
@@ -12,33 +12,33 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
       read_pool_id: barcode01_agilent
       items:
         - 0:
-            name: JPEGDNA-Control
-        - 1:
-            name: JPEGDNA-DeltaG
-      decoding_run_label: barcode01_agilent_alignment_decoding
-  - 2:
-      name: Dynegene
-      exp_id: synthesis_bench
-      database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode02_dynegene.db
-      read_pool_id: barcode02_dynegene
-      items:
-        - 0:
-            name: JPEGDNA-Control
-        - 1:
-            name: JPEGDNA-DeltaG
-      decoding_run_label: barcode02_dynegene_alignment_decoding
-  - 3:
-      name: Genscript
-      exp_id: synthesis_bench
-      database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode03_genscript.db
-      read_pool_id: barcode03_genscript
-      items:
-        - 0:
-            name: JPEGDNA-Control
-        - 1:
-            name: JPEGDNA-DeltaG
-      decoding_run_label: barcode03_genscript_alignment_decoding
-
+            name: JPEGDNA
+        - 2:
+            name: Motif-PAIRCODE
+      decoding_run_label: barcode01_agilent_alignment_with_motif_paircode_n_fastq_per_pass
+#   - 2:
+#       name: Dynegene
+#       exp_id: synthesis_bench
+#       database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode02_dynegene.db
+#       read_pool_id: barcode02_dynegene
+#       items:
+#         - 0:
+#             name: JPEGDNA
+#         - 2:
+#             name: Motif-PAIRCODE
+#       decoding_run_label: barcode02_dynegene_alignment_decoding
+#   - 3:
+#       name: Genscript
+#       exp_id: synthesis_bench
+#       database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode03_genscript.db
+#       read_pool_id: barcode03_genscript
+#       items:
+#         - 0:
+#             name: JPEGDNA
+#         - 1:
+#             name: Motif-PAIRCODE
+#       decoding_run_label: barcode03_genscript_alignment_decoding
+     
 scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level yes/no plotting switch)
   - read_pool_stats:
       script_settings:
@@ -49,19 +49,19 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
             title: "Reference count distribution over normalized read-pool coverage"
             description: "References are grouped by item in common coverage bins; X coverage is normalized by the global mean across every selected reference, while each Y bin is divided by that item's total reference count."
             read_count_values_per_bin: 500
-        - ref-coverage-in-read-pool_vs_delta-g_scatter:
-            same_x_scale_across_inputs: true
-            same_y_scale_across_inputs: true
-            title: "Normalized read-pool coverage against delta G"
-            description: "Points are colored by item, while linear regression and Spearman statistics are computed globally across every selected reference with delta G."
-            display_linear_regression: true
-        - ref-coverage-in-read-pool_vs_delta-g_mean-in-bin:
-            same_x_scale_across_inputs: true
-            same_y_scale_across_inputs: true
-            title: "Binned mean normalized read-pool coverage over delta G intervals"
-            description: "Items are ignored during aggregation; each bar reports the global mean normalized coverage for a delta G bin passing the minimum point threshold."
-            delta_g_precision: 1.0
-            min_points_per_bin: 10
+        # - ref-coverage-in-read-pool_vs_delta-g_scatter:
+        #     same_x_scale_across_inputs: true
+        #     same_y_scale_across_inputs: true
+        #     title: "Normalized read-pool coverage against delta G"
+        #     description: "Points are colored by item, while linear regression and Spearman statistics are computed globally across every selected reference with delta G."
+        #     display_linear_regression: true
+        # - ref-coverage-in-read-pool_vs_delta-g_mean-in-bin:
+        #     same_x_scale_across_inputs: true
+        #     same_y_scale_across_inputs: true
+        #     title: "Binned mean normalized read-pool coverage over delta G intervals"
+        #     description: "Items are ignored during aggregation; each bar reports the global mean normalized coverage for a delta G bin passing the minimum point threshold."
+        #     delta_g_precision: 1.0
+        #     min_points_per_bin: 10
 
   - decoding_run-metrics:
       script_settings:
@@ -143,25 +143,25 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
             description: "Coverage at first perfect decoding is shown on finite bins for references decoded at least once; references never decoded are grouped at infinity."
             bin_width: 0.10
             max_xticks: 18
-        - ref-coverage-at-ref-decoding_vs_delta-g_scatter:
-            same_x_scale_across_inputs: true
-            same_y_scale_across_inputs: true
-            title: "Reference Coverage at first perfect decoding against delta G"
-            description: "Each point is one reference with X=delta G and Y=mean positive coverage at first perfect decoding; drop-out references are shown on an infinity horizontal line."
-            visual_infinity_factor: 1.08
-        - ref-coverage-at-ref-decoding_vs_delta-g_mean-in-bin:
-            same_x_scale_across_inputs: true
-            same_y_scale_across_inputs: true
-            title: "Binned mean positive coverage over delta G intervals"
-            description: "Delta G is binned and each bar reports mean positive coverage for bins passing the minimum point threshold."
-            delta_g_precision: 0.33333
-            min_points_per_bin: 10
-        - underdecoded-ref-proba_vs_delta-g_mean-in-bin:
-            same_x_scale_across_inputs: true
-            same_y_scale_across_inputs: true
-            title: "Underdecoded reference probability by delta G bin"
-            description: "For each delta G bin, probability is N_underdecoded / (N_underdecoded + N_accepted), where underdecoded is defined by the configured zero-run threshold."
-            max_zero_run_ratio_for_inclusion: 0.5
-            delta_g_precision: 0.33333
-            min_points_per_bin: 2
-            display_linear_regression: true
+        # - ref-coverage-at-ref-decoding_vs_delta-g_scatter:
+        #     same_x_scale_across_inputs: true
+        #     same_y_scale_across_inputs: true
+        #     title: "Reference Coverage at first perfect decoding against delta G"
+        #     description: "Each point is one reference with X=delta G and Y=mean positive coverage at first perfect decoding; drop-out references are shown on an infinity horizontal line."
+        #     visual_infinity_factor: 1.08
+        # - ref-coverage-at-ref-decoding_vs_delta-g_mean-in-bin:
+        #     same_x_scale_across_inputs: true
+        #     same_y_scale_across_inputs: true
+        #     title: "Binned mean positive coverage over delta G intervals"
+        #     description: "Delta G is binned and each bar reports mean positive coverage for bins passing the minimum point threshold."
+        #     delta_g_precision: 0.33333
+        #     min_points_per_bin: 10
+        # - underdecoded-ref-proba_vs_delta-g_mean-in-bin:
+        #     same_x_scale_across_inputs: true
+        #     same_y_scale_across_inputs: true
+        #     title: "Underdecoded reference probability by delta G bin"
+        #     description: "For each delta G bin, probability is N_underdecoded / (N_underdecoded + N_accepted), where underdecoded is defined by the configured zero-run threshold."
+        #     max_zero_run_ratio_for_inclusion: 0.5
+        #     delta_g_precision: 0.33333
+        #     min_points_per_bin: 2
+        #     display_linear_regression: true

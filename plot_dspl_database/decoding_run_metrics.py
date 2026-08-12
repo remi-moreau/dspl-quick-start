@@ -548,21 +548,21 @@ class DecodingRunMetricsScript:
                 metric_column = AT_DECODING_PLOTS[plot_name]
                 for model in self.input_models:
                     decoded_df = model.at_decoding_df.dropna(subset=["pass_at_decoding"])
-                    item_lines = []
+                    lines.append(f"{model.input_spec.name}:")
                     for item_id, item_name in self._item_name_map(model.input_spec).items():
                         values = decoded_df.loc[decoded_df["item_id"] == item_id, metric_column].dropna()
                         decoded_count = int(
                             decoded_df.loc[decoded_df["item_id"] == item_id, "dec_run_id"].nunique()
                         )
-                        item_lines.append(
-                            self._format_statistics(
+                        lines.append(
+                            "  "
+                            + self._format_statistics(
                                 item_name,
                                 values,
                                 decoded_count,
                                 model.n_runs_total_labeled,
                             )
                         )
-                    lines.append(f"{model.input_spec.name}: " + "; ".join(item_lines))
 
             sections.append(
                 MetadataSection(

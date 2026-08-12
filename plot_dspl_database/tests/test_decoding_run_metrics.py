@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from decoding_run_metrics import (  # noqa: E402
     DecodingRunMetricsScript,
     DecodingRunMetricsSettings,
+    InputReadModel,
     convert_at_decoding_to_display_units,
 )
 from optional_script_utils import (  # noqa: E402
@@ -21,7 +22,13 @@ from optional_script_utils import (  # noqa: E402
     build_metadata_pages,
     harmonize_axes_scales,
 )
-from protocols import PlotSpec, ScriptExecutionContext, ScriptSpec  # noqa: E402
+from protocols import (  # noqa: E402
+    InputSpec,
+    ItemSpec,
+    PlotSpec,
+    ScriptExecutionContext,
+    ScriptSpec,
+)
 
 
 def _script_with_settings(**settings: object) -> DecodingRunMetricsScript:
@@ -131,6 +138,81 @@ def test_metadata_builder_creates_multiple_pages_without_dropping_sections() -> 
         assert len(pages) > 1
         for index in range(8):
             assert f"Figure {index}" in rendered_text
+    finally:
+        for page in pages:
+            plt.close(page)
+
+
+def test_metadata_builder_splits_one_long_section_without_overflow() -> None:
+    section = MetadataSection(
+        title="Long figure",
+        description=" ".join(["mathematical definition"] * 200),
+        lines=tuple(f"audit line {index}" for index in range(100)),
+    )
+
+    pages = build_metadata_pages("read_pool_stats", [], [section])
+    rendered_text = "\n".join(text.get_text() for page in pages for text in page.texts)
+
+    try:
+        assert len(pages) > 1
+        assert "Long figure (continued)" in rendered_text
+        assert "audit line 99" in rendered_text
+        assert all(text.get_position()[1] >= 0.055 for page in pages for text in page.texts)
+    finally:
+        for page in pages:
+            plt.close(page)
+
+
+def test_vs_run_number_metadata_uses_one_rendered_line_per_item() -> None:
+    item_specs = [ItemSpec(item_id=item_id, name=f"Item {item_id}") for item_id in range(5)]
+    input_specs = [
+        InputSpec(
+            input_id=input_id,
+            name=f"Input {input_id}",
+            database=Path("unused.db"),
+            exp_id="test-exp",
+            read_pool_id=f"pool-{input_id}",
+            decoding_run_label="label",
+            items=item_specs,
+        )
+        for input_id in range(2)
+    ]
+    context = ScriptExecutionContext(
+        output_path=Path("plots"),
+        inputs=input_specs,
+        script=ScriptSpec(
+            name="decoding_run-metrics",
+            plot_settings=[PlotSpec(name="hamming-dist-at-decoding_vs_run-number")],
+        ),
+    )
+    script = DecodingRunMetricsScript(context)
+    at_decoding_df = pd.DataFrame(
+        {
+            "item_id": list(range(5)),
+            "pass_at_decoding": [1] * 5,
+            "dec_run_id": ["run"] * 5,
+            "hamming_distance_normalized_at_decoding": [0.1] * 5,
+        }
+    )
+    script.input_models = [
+        InputReadModel(
+            input_spec=input_spec,
+            progression_df=pd.DataFrame(),
+            at_decoding_df=at_decoding_df,
+            n_runs_total_labeled=1,
+            run_name="run",
+        )
+        for input_spec in input_specs
+    ]
+
+    pages = script._build_metadata_pages()
+    rendered_lines = [text.get_text() for page in pages for text in page.texts]
+
+    try:
+        assert "Input 0:" in rendered_lines
+        assert "Input 1:" in rendered_lines
+        assert sum(line.startswith("  Item ") for line in rendered_lines) == 10
+        assert not any(";" in line for line in rendered_lines if line.startswith("  Item "))
     finally:
         for page in pages:
             plt.close(page)
