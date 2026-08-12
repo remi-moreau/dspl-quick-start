@@ -21,7 +21,7 @@ input_data/synthesis_bench/reads/*/*/*.fasta
 input_data/six_images/reads/*/*/*.fastq.gz
 input_data/six_images/reads/*/*.fastq.gz
 
-plots/plots/*
+plots/*
 
 plots_v2/
 

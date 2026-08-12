@@ -1,7 +1,7 @@
 
-output_path: plots/plots_v2/temp_test/
-show_figures: true
-figure_width_per_input: 10.0
+output_path: plots/paper_delta-g/
+show_figures: false
+figure_width_per_input: 6.0
 figure_height: 5.5
 
 inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
@@ -70,13 +70,13 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
                 grid_n_points: 220
                 min_points_per_curve: 2
       plot_settings:
-        - psnr_vs_run-progression:
-                        same_x_scale_across_inputs: true
-                        same_y_scale_across_inputs: true
-                        plot_individual_curves: false
-                        plot_average_curve: true
-                        plot_se_band: true
-                        plot_std_band: false
+        # - psnr_vs_run-progression:
+        #                 same_x_scale_across_inputs: true
+        #                 same_y_scale_across_inputs: true
+        #                 plot_individual_curves: false
+        #                 plot_average_curve: true
+        #                 plot_se_band: true
+        #                 plot_std_band: false
         - hamming-dist_vs_run-progression:
                         same_x_scale_across_inputs: true
                         same_y_scale_across_inputs: true

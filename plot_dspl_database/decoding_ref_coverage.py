@@ -272,22 +272,86 @@ def compute_visual_infinity_level(finite_values: pd.Series, factor: float) -> fl
     return float(numeric_values.max()) * factor
 
 
-def compute_spearman_statistics(rows_df: pd.DataFrame) -> tuple[int, float | None, float | None]:
-    pairs = rows_df[["delta_g", "mean_positive_coverage"]].replace([np.inf, -np.inf], np.nan).dropna()
+def compute_spearman_statistics_for_columns(
+    rows_df: pd.DataFrame,
+    x_column: str,
+    y_column: str,
+) -> tuple[int, float | None, float | None]:
+    pairs = rows_df[[x_column, y_column]].replace([np.inf, -np.inf], np.nan).dropna()
     n_points = len(pairs)
     if (
         n_points < 2
-        or pairs["delta_g"].nunique() < 2
-        or pairs["mean_positive_coverage"].nunique() < 2
+        or pairs[x_column].nunique() < 2
+        or pairs[y_column].nunique() < 2
     ):
         return n_points, None, None
 
-    result = spearmanr(pairs["delta_g"], pairs["mean_positive_coverage"])
+    result = spearmanr(pairs[x_column], pairs[y_column])
     rho = float(result.statistic)
     p_value = float(result.pvalue)
     if not np.isfinite(rho) or not np.isfinite(p_value):
         return n_points, None, None
     return n_points, rho, p_value
+
+
+def compute_spearman_statistics(rows_df: pd.DataFrame) -> tuple[int, float | None, float | None]:
+    return compute_spearman_statistics_for_columns(
+        rows_df,
+        "delta_g",
+        "mean_positive_coverage",
+    )
+
+
+def compute_underdecoded_probability_bins(
+    reference_df: pd.DataFrame,
+    item_ids: list[int],
+    max_zero_run_ratio_for_inclusion: float,
+    delta_g_precision: float,
+    min_points_per_bin: int,
+) -> pd.DataFrame:
+    rows: list[pd.DataFrame] = []
+    for item_id in item_ids:
+        item_df = reference_df[
+            (reference_df["item_id"] == item_id) & reference_df["delta_g"].notna()
+        ].copy()
+        if item_df.empty:
+            continue
+
+        item_df["bin_upper"] = (
+            np.ceil(item_df["delta_g"] / delta_g_precision) * delta_g_precision
+        )
+        item_df["is_underdecoded"] = (
+            item_df["zero_ratio"] >= max_zero_run_ratio_for_inclusion
+        ).astype(int)
+        binned = (
+            item_df.groupby("bin_upper", as_index=False)
+            .agg(
+                n_total=("is_underdecoded", "size"),
+                n_underdecoded=("is_underdecoded", "sum"),
+            )
+        )
+        binned = binned[binned["n_total"] >= min_points_per_bin].copy()
+        if binned.empty:
+            continue
+        binned["n_accepted"] = binned["n_total"] - binned["n_underdecoded"]
+        binned["underdecoded_probability"] = binned["n_underdecoded"] / binned["n_total"]
+        binned["bin_center"] = binned["bin_upper"] - (delta_g_precision / 2.0)
+        binned["item_id"] = item_id
+        rows.append(binned)
+
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "bin_upper",
+                "bin_center",
+                "item_id",
+                "n_total",
+                "n_accepted",
+                "n_underdecoded",
+                "underdecoded_probability",
+            ]
+        )
+    return pd.concat(rows, ignore_index=True)
 
 
 @dataclass
@@ -380,6 +444,10 @@ class DecodingRefCoverageScript:
             ]
             if plot_spec.name == "ref-coverage-at-ref-decoding_vs_delta-g_scatter":
                 metadata_lines.extend(self._spearman_metadata_lines())
+            elif plot_spec.name == "underdecoded-ref-proba_vs_delta-g_mean-in-bin":
+                metadata_lines.extend(
+                    self._underdecoded_probability_spearman_metadata_lines(plot_settings)
+                )
             sections.append(
                 MetadataSection(
                     title=f"{index}. {title}",
@@ -392,19 +460,45 @@ class DecodingRefCoverageScript:
     def _spearman_metadata_lines(self) -> list[str]:
         lines: list[str] = []
         for input_model in self.input_models:
-            item_names = self._item_name_map(input_model.input_spec)
-            item_statistics: list[str] = []
             decoded_df = input_model.decoded_at_least_once_reference_level_df
-            for item_id, item_name in item_names.items():
-                item_df = decoded_df[decoded_df["item_id"] == item_id]
-                n_points, rho, p_value = compute_spearman_statistics(item_df)
-                if rho is None or p_value is None:
-                    item_statistics.append(f"{item_name}: n={n_points}, rho=N/A, p_value=N/A")
-                else:
-                    item_statistics.append(
-                        f"{item_name}: n={n_points}, rho={rho:.4g}, p_value={p_value:.4g}"
-                    )
-            lines.append(f"Spearman - {input_model.input_spec.name}: " + "; ".join(item_statistics))
+            n_points, rho, p_value = compute_spearman_statistics(decoded_df)
+            if rho is None or p_value is None:
+                statistics = f"n={n_points}, rho=N/A, p_value=N/A"
+            else:
+                statistics = f"n={n_points}, rho={rho:.4g}, p_value={p_value:.4g}"
+            lines.append(f"Global Spearman - {input_model.input_spec.name}: {statistics}")
+        return lines
+
+    def _underdecoded_probability_spearman_metadata_lines(
+        self,
+        plot_settings: PlotTextSettings,
+    ) -> list[str]:
+        if not isinstance(plot_settings, UnderdecodedPlotSettings):
+            raise TypeError("Expected UnderdecodedPlotSettings for underdecoded Spearman metadata.")
+
+        lines: list[str] = []
+        for input_model in self.input_models:
+            item_names = self._item_name_map(input_model.input_spec)
+            binned_df = compute_underdecoded_probability_bins(
+                input_model.reference_level_df,
+                list(item_names),
+                plot_settings.max_zero_run_ratio_for_inclusion,
+                plot_settings.delta_g_precision,
+                plot_settings.min_points_per_bin,
+            )
+            n_points, rho, p_value = compute_spearman_statistics_for_columns(
+                binned_df,
+                "bin_center",
+                "underdecoded_probability",
+            )
+            if rho is None or p_value is None:
+                statistics = f"n_bins={n_points}, rho=N/A, p_value=N/A"
+            else:
+                statistics = f"n_bins={n_points}, rho={rho:.4g}, p_value={p_value:.4g}"
+            lines.append(
+                f"Global Spearman (delta G bin center vs underdecoded probability) - "
+                f"{input_model.input_spec.name}: {statistics}"
+            )
         return lines
 
     def _validate_requested_plots(self) -> None:
@@ -971,60 +1065,18 @@ class DecodingRefCoverageScript:
                 continue
 
             item_names = self._item_name_map(input_model.input_spec)
-            underdecoded_threshold = plot_settings.max_zero_run_ratio_for_inclusion
-            min_points_per_bin = plot_settings.min_points_per_bin
-
-            accepted_reference_level_df = input_model.reference_level_df[
-                input_model.reference_level_df["zero_ratio"] < underdecoded_threshold
-            ].copy()
-            underdecoded_reference_level_df = input_model.reference_level_df[
-                input_model.reference_level_df["zero_ratio"] >= underdecoded_threshold
-            ].copy()
-
-            rows: list[pd.DataFrame] = []
-            for item_id in sorted(item_names.keys()):
-                accepted = accepted_reference_level_df[
-                    accepted_reference_level_df["item_id"] == item_id
-                ].dropna(subset=["delta_g"]).copy()
-                underdecoded = underdecoded_reference_level_df[
-                    underdecoded_reference_level_df["item_id"] == item_id
-                ].dropna(subset=["delta_g"]).copy()
-
-                if accepted.empty and underdecoded.empty:
-                    continue
-
-                if not accepted.empty:
-                    accepted["bin_upper"] = np.ceil(accepted["delta_g"] / plot_settings.delta_g_precision) * plot_settings.delta_g_precision
-                    accepted_counts = accepted.groupby("bin_upper", as_index=False).size().rename(columns={"size": "n_accepted"})
-                else:
-                    accepted_counts = pd.DataFrame(columns=["bin_upper", "n_accepted"])
-
-                if not underdecoded.empty:
-                    underdecoded["bin_upper"] = np.ceil(underdecoded["delta_g"] / plot_settings.delta_g_precision) * plot_settings.delta_g_precision
-                    underdecoded_counts = underdecoded.groupby("bin_upper", as_index=False).size().rename(columns={"size": "n_underdecoded"})
-                else:
-                    underdecoded_counts = pd.DataFrame(columns=["bin_upper", "n_underdecoded"])
-
-                merged = accepted_counts.merge(underdecoded_counts, on="bin_upper", how="outer").fillna(0)
-                if merged.empty:
-                    continue
-                merged["n_accepted"] = merged["n_accepted"].astype(int)
-                merged["n_underdecoded"] = merged["n_underdecoded"].astype(int)
-                merged["n_total"] = merged["n_accepted"] + merged["n_underdecoded"]
-                merged = merged[merged["n_total"] >= min_points_per_bin].copy()
-                if merged.empty:
-                    continue
-                merged["underdecoded_probability"] = merged["n_underdecoded"] / merged["n_total"]
-                merged["bin_center"] = merged["bin_upper"] - (plot_settings.delta_g_precision / 2.0)
-                merged["item_id"] = item_id
-                rows.append(merged)
-
-            if not rows:
+            merged_rows = compute_underdecoded_probability_bins(
+                input_model.reference_level_df,
+                sorted(item_names),
+                plot_settings.max_zero_run_ratio_for_inclusion,
+                plot_settings.delta_g_precision,
+                plot_settings.min_points_per_bin,
+            )
+            if merged_rows.empty:
                 ax.text(0.5, 0.5, "No bins pass threshold", ha="center", va="center", transform=ax.transAxes)
                 ax.set_title(input_model.input_spec.name)
                 continue
 
-            merged_rows = pd.concat(rows, ignore_index=True)
             item_ids = sorted(merged_rows["item_id"].unique().tolist())
             bar_width = plot_settings.delta_g_precision / max(len(item_ids), 1)
             for idx, item_id in enumerate(item_ids):
