@@ -10,7 +10,7 @@ import yaml
 
 from decoding_ref_coverage import DecodingRefCoverageScript
 from decoding_run_metrics import DecodingRunMetricsScript
-from pdf_artifacts import MERGED_PDF_FILENAME, merge_pdf_files
+from pdf_artifacts import merge_pdf_files
 from protocols import PlotConfig, PlotScriptProtocol, ScriptExecutionContext
 from read_pool_stats import ReadPoolStatsScript
 
@@ -75,7 +75,7 @@ def main() -> None:
 		)
 
 	if validated_config.merge_script_pdfs:
-		merged_pdf_path = output_path / MERGED_PDF_FILENAME
+		merged_pdf_path = output_path / f"{validated_config.config_name}.pdf"
 		merge_pdf_files(script_pdf_paths, merged_pdf_path)
 		print(f"[orchestrator] merged PDF={merged_pdf_path}")
 

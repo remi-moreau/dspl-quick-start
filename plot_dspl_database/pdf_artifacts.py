@@ -7,9 +7,6 @@ from tempfile import NamedTemporaryFile
 from typing import Sequence
 
 
-MERGED_PDF_FILENAME = "merged_plots.pdf"
-
-
 def merge_pdf_files(input_paths: Sequence[Path], output_path: Path) -> None:
 	if not input_paths:
 		raise ValueError("At least one input PDF is required for merging.")

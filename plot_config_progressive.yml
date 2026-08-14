@@ -1,3 +1,4 @@
+config_name: plots_progressive_decoding
 merge_script_pdfs: true
 output_path: plots/progressive_decoding/
 show_figures: false
@@ -61,7 +62,7 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
       name: Agilent sureprint Hifi post-encapsulation
       exp_id: six_images
       database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode04_six_images.db
-      read_pool_id: new_wetlab_six_images
+      read_pool_id: barcode04_six_images
       items:
         # - 0:
         #     name: Chest
@@ -87,6 +88,8 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
             title: "Reference count distribution over normalized read-pool coverage"
             description: "References are grouped by item in common coverage bins; X coverage is normalized by the global mean across every selected reference, while each Y bin is divided by that item's total reference count."
             read_count_values_per_bin: 500
+            bin_width_mode: shared_normalized
+            bin_width_reference: pooled
         # - ref-coverage-in-read-pool_vs_delta-g_scatter:
         #     same_x_scale_across_inputs: true
         #     same_y_scale_across_inputs: true
@@ -129,13 +132,13 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
                         plot_average_curve: true
                         plot_se_band: true
                         plot_std_band: false
-        - fpdpc_vs_run-progression:
-                        same_x_scale_across_inputs: true
-                        same_y_scale_across_inputs: true
-                        plot_individual_curves: false
-                        plot_average_curve: true
-                        plot_se_band: true
-                        plot_std_band: false
+        # - fpdpc_vs_run-progression:
+        #                 same_x_scale_across_inputs: true
+        #                 same_y_scale_across_inputs: true
+        #                 plot_individual_curves: false
+        #                 plot_average_curve: true
+        #                 plot_se_band: true
+        #                 plot_std_band: false
         # - psnr-at-decoding_vs_run-number:
         #                 same_x_scale_across_inputs: false
         #                 same_y_scale_across_inputs: true
@@ -180,7 +183,7 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
             title: "Reference Coverage distribution at reference decoding (drop out at infinity)"
             description: "Coverage at first perfect decoding is shown on finite bins for references decoded at least once; references never decoded are grouped at infinity."
             bin_width: 0.10
-            max_xticks: 18
+            max_xticks: 10
         # - ref-coverage-at-ref-decoding_vs_delta-g_scatter:
         #     same_x_scale_across_inputs: true
         #     same_y_scale_across_inputs: true

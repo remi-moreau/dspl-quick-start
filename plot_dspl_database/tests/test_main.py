@@ -11,12 +11,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import main as main_module  # noqa: E402
 from main import _parse_args  # noqa: E402
-from pdf_artifacts import MERGED_PDF_FILENAME  # noqa: E402
 from protocols import PlotConfig  # noqa: E402
 
 
 def _minimal_raw_config() -> dict:
     return {
+        "config_name": "test_plots",
         "output_path": "plots",
         "inputs": [
             {
@@ -68,6 +68,15 @@ def test_pdf_merge_can_be_enabled() -> None:
     assert config.merge_script_pdfs is True
 
 
+@pytest.mark.parametrize("config_name", ["", ".", "..", "folder/name", "name.pdf"])
+def test_config_name_must_be_a_safe_pdf_stem(config_name: str) -> None:
+    raw_config = _minimal_raw_config()
+    raw_config["config_name"] = config_name
+
+    with pytest.raises(ValueError, match="config_name"):
+        PlotConfig.model_validate(raw_config)
+
+
 def test_all_plot_config_variants_declare_boolean_pdf_merge() -> None:
     repository_root = Path(__file__).resolve().parents[2]
     config_paths = sorted(repository_root.glob("plot_config_*.yml"))
@@ -76,6 +85,7 @@ def test_all_plot_config_variants_declare_boolean_pdf_merge() -> None:
     for config_path in config_paths:
         raw_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         config = PlotConfig.model_validate(raw_config)
+        assert config.config_name == raw_config["config_name"]
         assert isinstance(raw_config.get("merge_script_pdfs"), bool), config_path.name
         assert config.merge_script_pdfs is raw_config["merge_script_pdfs"]
 
@@ -135,8 +145,9 @@ def test_main_optionally_merges_script_pdfs_in_yaml_order(
     main_module.main()
 
     output_path = tmp_path / "plots"
-    merged_pdf_path = output_path / MERGED_PDF_FILENAME
+    merged_pdf_path = output_path / "test_plots.pdf"
     assert merged_pdf_path.exists() is merge_script_pdfs
+    assert not (output_path / "merged_plots.pdf").exists()
     assert (output_path / "decoding_ref-coverage" / "decoding_ref-coverage.pdf").is_file()
     assert (output_path / "read_pool_stats" / "read_pool_stats.pdf").is_file()
     if merge_script_pdfs:

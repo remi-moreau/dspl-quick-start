@@ -1,3 +1,4 @@
+config_name: plots_motif_paircode
 merge_script_pdfs: true
 output_path: plots/motif_paircode
 show_figures: false
@@ -49,19 +50,19 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
             title: "Reference count distribution over normalized read-pool coverage"
             description: "References are grouped by item in common coverage bins; X coverage is normalized by the global mean across every selected reference, while each Y bin is divided by that item's total reference count."
             read_count_values_per_bin: 500
-        # - ref-coverage-in-read-pool_vs_delta-g_scatter:
-        #     same_x_scale_across_inputs: true
-        #     same_y_scale_across_inputs: true
-        #     title: "Normalized read-pool coverage against delta G"
-        #     description: "Points are colored by item, while linear regression and Spearman statistics are computed globally across every selected reference with delta G."
-        #     display_linear_regression: true
-        # - ref-coverage-in-read-pool_vs_delta-g_mean-in-bin:
-        #     same_x_scale_across_inputs: true
-        #     same_y_scale_across_inputs: true
-        #     title: "Binned mean normalized read-pool coverage over delta G intervals"
-        #     description: "Items are ignored during aggregation; each bar reports the global mean normalized coverage for a delta G bin passing the minimum point threshold."
-        #     delta_g_precision: 1.0
-        #     min_points_per_bin: 10
+        - ref-coverage-in-read-pool_vs_delta-g_scatter:
+            same_x_scale_across_inputs: true
+            same_y_scale_across_inputs: true
+            title: "Normalized read-pool coverage against delta G"
+            description: "Points are colored by item, while linear regression and Spearman statistics are computed globally across every selected reference with delta G."
+            display_linear_regression: true
+        - ref-coverage-in-read-pool_vs_delta-g_mean-in-bin:
+            same_x_scale_across_inputs: true
+            same_y_scale_across_inputs: true
+            title: "Binned mean normalized read-pool coverage over delta G intervals"
+            description: "Items are ignored during aggregation; each bar reports the global mean normalized coverage for a delta G bin passing the minimum point threshold."
+            delta_g_precision: 1.0
+            min_points_per_bin: 10
 
   - decoding_run-metrics:
       script_settings:
@@ -134,34 +135,34 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
             title: "Reference Coverage distribution at image decoding"
             description: "Each bar shows the normalized number of references per image-decoding coverage bin; item-level statistics summarize the aggregated distribution."
             coverage_display_min: 0
-            coverage_display_max: 50
+            coverage_display_max: 400
             max_xticks: 16
         - ref-coverage-at-ref-decoding_distribution:
             same_x_scale_across_inputs: true
             same_y_scale_across_inputs: true
             title: "Reference Coverage distribution at reference decoding (drop out at infinity)"
             description: "Coverage at first perfect decoding is shown on finite bins for references decoded at least once; references never decoded are grouped at infinity."
-            bin_width: 0.10
-            max_xticks: 18
-        # - ref-coverage-at-ref-decoding_vs_delta-g_scatter:
-        #     same_x_scale_across_inputs: true
-        #     same_y_scale_across_inputs: true
-        #     title: "Reference Coverage at first perfect decoding against delta G"
-        #     description: "Each point is one reference with X=delta G and Y=mean positive coverage at first perfect decoding; drop-out references are shown on an infinity horizontal line."
-        #     visual_infinity_factor: 1.08
-        # - ref-coverage-at-ref-decoding_vs_delta-g_mean-in-bin:
-        #     same_x_scale_across_inputs: true
-        #     same_y_scale_across_inputs: true
-        #     title: "Binned mean positive coverage over delta G intervals"
-        #     description: "Delta G is binned and each bar reports mean positive coverage for bins passing the minimum point threshold."
-        #     delta_g_precision: 0.33333
-        #     min_points_per_bin: 10
-        # - underdecoded-ref-proba_vs_delta-g_mean-in-bin:
-        #     same_x_scale_across_inputs: true
-        #     same_y_scale_across_inputs: true
-        #     title: "Underdecoded reference probability by delta G bin"
-        #     description: "For each delta G bin, probability is N_underdecoded / (N_underdecoded + N_accepted), where underdecoded is defined by the configured zero-run threshold."
-        #     max_zero_run_ratio_for_inclusion: 0.5
-        #     delta_g_precision: 0.33333
-        #     min_points_per_bin: 2
-        #     display_linear_regression: true
+            bin_width: 0.40
+            max_xticks: 7
+        - ref-coverage-at-ref-decoding_vs_delta-g_scatter:
+            same_x_scale_across_inputs: true
+            same_y_scale_across_inputs: true
+            title: "Reference Coverage at first perfect decoding against delta G"
+            description: "Each point is one reference with X=delta G and Y=mean positive coverage at first perfect decoding; drop-out references are shown on an infinity horizontal line."
+            visual_infinity_factor: 1.08
+        - ref-coverage-at-ref-decoding_vs_delta-g_mean-in-bin:
+            same_x_scale_across_inputs: true
+            same_y_scale_across_inputs: true
+            title: "Binned mean positive coverage over delta G intervals"
+            description: "Delta G is binned and each bar reports mean positive coverage for bins passing the minimum point threshold."
+            delta_g_precision: 0.33333
+            min_points_per_bin: 10
+        - underdecoded-ref-proba_vs_delta-g_mean-in-bin:
+            same_x_scale_across_inputs: true
+            same_y_scale_across_inputs: true
+            title: "Underdecoded reference probability by delta G bin"
+            description: "For each delta G bin, probability is N_underdecoded / (N_underdecoded + N_accepted), where underdecoded is defined by the configured zero-run threshold."
+            max_zero_run_ratio_for_inclusion: 0.5
+            delta_g_precision: 0.33333
+            min_points_per_bin: 2
+            display_linear_regression: true

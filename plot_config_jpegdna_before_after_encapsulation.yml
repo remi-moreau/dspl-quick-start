@@ -1,3 +1,4 @@
+config_name: plots_jpegdna_before_after_encapsulation
 merge_script_pdfs: true
 output_path: plots/jpegdna_before_after_encapsulation/
 show_figures: false

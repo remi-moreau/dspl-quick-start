@@ -80,6 +80,7 @@ class ScriptSpec(BaseModel):
 class PlotConfig(BaseModel):
 	model_config = ConfigDict(extra="forbid")
 
+	config_name: str
 	output_path: Path
 	merge_script_pdfs: bool = False
 	show_figures: bool = False
@@ -93,6 +94,15 @@ class PlotConfig(BaseModel):
 	def _validate_figure_dimension(cls, value: float) -> float:
 		if value <= 0:
 			raise ValueError("Global figure dimensions must be > 0.")
+		return value
+
+	@field_validator("config_name")
+	@classmethod
+	def _validate_config_name(cls, value: str) -> str:
+		if not value or value in {".", ".."} or Path(value).name != value:
+			raise ValueError("config_name must be a non-empty file name without path separators.")
+		if value.lower().endswith(".pdf"):
+			raise ValueError("config_name must not include the .pdf extension.")
 		return value
 
 	@model_validator(mode="before")

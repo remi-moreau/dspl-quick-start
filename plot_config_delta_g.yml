@@ -1,3 +1,4 @@
+config_name: plots_delta_g
 merge_script_pdfs: true
 output_path: plots/delta_g/
 show_figures: false
