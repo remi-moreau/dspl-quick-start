@@ -196,6 +196,12 @@ dspl run decoding decoding_barcode04_six_images.yml \
 
 The plottings scripts are in folder `plot_dspl_database`. The main script is `main.py`, which takes as input a YAML configuration file. The configuration file specifies which plotting scripts to run and their settings.
 
+IMPORTANT: before plotting, metrics relative to the read pool itself (and not the previously decoded runs) can be computed with:
+```bash
+dspl db refresh-read-pool-stats <PATH TO THE DB> --experience-id <EXP ID>
+```
+otherwise, the script "read_pool_stats" which is part of the plotting module will not work.
+
 ### 3.1 Plot `delta_g` metrics
 
 ```bash
