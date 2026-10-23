@@ -9,7 +9,7 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
   - 0:
       name: Agilent sureprint Hifi
       exp_id: six_images
-      database: /home/remi-moreau/Documents/3_STAGE_RECHERCHE/5_DATA/2026-08_jpegdna_first_wetlab_dspl_database/JPEGDNA_WETLAB.db
+      database: /run/media/remi-moreau/WORKDISKRM/2026_stage-recherche_cnrs-i3s_dna-data-storage/1_data-archive_do-not-access-nor-delete_copy-only/2026-07_wetlab_first-jpegdna/dspl-db/JPEGDNA_WETLAB.db
       read_pool_id: new_wetlab_six_images
       items:
         - 0:
@@ -28,7 +28,7 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
   - 1:
       name: Agilent sureprint Hifi post-encapsulation
       exp_id: six_images
-      database: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-08_dspl_databases/barcode04_six_images.db
+      database: database/barcode04_six_images.db
       read_pool_id: barcode04_six_images
       items:
         - 0:
@@ -48,6 +48,7 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
 scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level yes/no plotting switch)
   - read_pool_stats:
       script_settings:
+        legend_fontsize: 8.0
       plot_settings:
         - ref-coverage-in-read-pool_distribution:
             same_x_scale_across_inputs: true
@@ -74,10 +75,11 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
 
   - decoding_run-metrics:
       script_settings:
-                x_axis_key: coverage
-                common_x_origin: 0.0
-                grid_n_points: 220
-                min_points_per_curve: 2
+        legend_fontsize: 8.0
+        x_axis_key: coverage
+        common_x_origin: 0.0
+        grid_n_points: 220
+        min_points_per_curve: 2
       plot_settings:
         # - psnr_vs_run-progression:
         #                 same_x_scale_across_inputs: true
@@ -134,6 +136,7 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
 
   - decoding_ref-coverage:
       script_settings:
+        legend_fontsize: 8.0
         use_single_run_id_instead: null
 
       plot_settings:

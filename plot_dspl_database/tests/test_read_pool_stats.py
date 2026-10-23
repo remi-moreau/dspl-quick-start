@@ -315,6 +315,7 @@ def test_distribution_normalizes_each_item_population_on_y_axis(tmp_path: Path) 
     database = tmp_path / "normalized-y.db"
     _create_snapshot_database(database)
     script = ReadPoolStatsScript(_script_context(database, tmp_path / "plots"))
+    script.settings = ReadPoolStatsSettings(legend_fontsize=12.0)
     script.input_models = [script._build_read_model_for_input(_input_spec(database))]
 
     figure = script._plot_distribution()
@@ -323,6 +324,13 @@ def test_distribution_normalizes_each_item_population_on_y_axis(tmp_path: Path) 
         axis = figure.axes[0]
         assert sum(bar.get_height() for bar in axis.patches) == pytest.approx(2.0)
         assert axis.get_ylabel() == "Fraction of item references"
+        assert all(bar.get_linewidth() == 0.0 for bar in axis.patches)
+        assert all(bar.get_edgecolor()[3] == 0.0 for bar in axis.patches)
+        assert all(text.get_fontsize() == 12.0 for text in axis.get_legend().get_texts())
+        assert axis.title.get_fontsize() == 12.0
+        assert axis.xaxis.label.get_fontsize() == 12.0
+        assert axis.yaxis.label.get_fontsize() == 12.0
+        assert figure._suptitle.get_fontsize() == 12.0
     finally:
         plt.close(figure)
 

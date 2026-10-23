@@ -4,7 +4,7 @@ exp_description: >
   Encoding and decoding of six images of the JPEG AIC 3 dataset, 
   using JPEGDNA as the outer coding protocol. 
 
-database: database/barcode04_six_images.db
+database: /run/media/remi-moreau/WORKDISKRM/2026_stage-recherche_cnrs-i3s_dna-data-storage/1_data-archive_do-not-access-nor-delete_copy-only/2026-07_wetlab_progressive-decoding/dspl-db/barcode04_six_images.db
 
 decoding_settings:
   ref_enc_run_id: full_encoding_11
@@ -20,8 +20,8 @@ decoding_settings:
 
   input_settings:
     name: read_folder
-    read_folder_path: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-06_wetlab_real-time-decoding/all_reads/barcode04_six_images
-    move_reads_to: /media/remi-moreau/Seagate Expansion Drive/4_EXPERIENCES_PRO_STAGES/2026_Stage_3A_CNRS_I3S_MEDIACODING/5_DATA/2026-06_wetlab_real-time-decoding/all_reads/barcode04_six_images_processed
+    read_folder_path: /run/media/remi-moreau/WORKDISKRM/2026_stage-recherche_cnrs-i3s_dna-data-storage/1_data-archive_do-not-access-nor-delete_copy-only/2026-07_wetlab_progressive-decoding/reads/all_reads/all_reads/barcode04_six-images 
+    move_reads_to: /run/media/remi-moreau/WORKDISKRM/2026_stage-recherche_cnrs-i3s_dna-data-storage/1_data-archive_do-not-access-nor-delete_copy-only/2026-07_wetlab_progressive-decoding/reads/all_reads/all_reads/barcode04_six-images_processed
     database_ingestion_settings:
       read_pool_id: barcode04_six_images
       read_pool_description: >

@@ -11,7 +11,13 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class PlotScriptSettings(BaseModel):
+	model_config = ConfigDict(extra="forbid")
+
+	legend_fontsize: float = Field(default=8.0, gt=0, allow_inf_nan=False)
 
 
 class PlotTextSettings(BaseModel):
@@ -59,8 +65,13 @@ def make_axes_grid(
 	return fig, list(axes)
 
 
-def apply_figure_title(fig: Figure, title: str) -> None:
-	fig.suptitle(title, fontsize=14, y=0.98)
+def apply_figure_title(fig: Figure, title: str, *, fontsize: float | None = None) -> None:
+	if fontsize is not None:
+		for axis in fig.axes:
+			axis.title.set_fontsize(fontsize)
+			axis.xaxis.label.set_fontsize(fontsize)
+			axis.yaxis.label.set_fontsize(fontsize)
+	fig.suptitle(title, fontsize=fontsize if fontsize is not None else 14, y=0.98)
 	fig.tight_layout(rect=(0.02, 0.02, 0.98, 0.94))
 
 

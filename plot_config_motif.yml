@@ -43,6 +43,7 @@ inputs: # BEHAVIOR: Comment any input and/or item you do not want to plot.
 scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level yes/no plotting switch)
   - read_pool_stats:
       script_settings:
+        legend_fontsize: 8.0
       plot_settings:
         - ref-coverage-in-read-pool_distribution:
             same_x_scale_across_inputs: true
@@ -66,10 +67,11 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
 
   - decoding_run-metrics:
       script_settings:
-                x_axis_key: coverage
-                common_x_origin: 0.0
-                grid_n_points: 220
-                min_points_per_curve: 2
+        legend_fontsize: 8.0
+        x_axis_key: coverage
+        common_x_origin: 0.0
+        grid_n_points: 220
+        min_points_per_curve: 2
       plot_settings:
         # - psnr_vs_run-progression:
         #                 same_x_scale_across_inputs: true
@@ -126,6 +128,7 @@ scripts: # BEHAVIOR: Comment any script you do not want to run (no plot-level ye
 
   - decoding_ref-coverage:
       script_settings:
+        legend_fontsize: 8.0
         use_single_run_id_instead: null
 
       plot_settings:

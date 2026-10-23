@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from optional_script_utils import (
     MetadataSection,
+    PlotScriptSettings,
     PlotTextSettings,
     apply_figure_title,
     build_metadata_pages,
@@ -117,7 +118,7 @@ DEFAULT_PLOT_EXPLANATIONS = {
 }
 
 
-class DecodingRunMetricsSettings(BaseModel):
+class DecodingRunMetricsSettings(PlotScriptSettings):
     model_config = ConfigDict(extra="forbid")
 
     x_axis_key: Literal[
@@ -447,7 +448,7 @@ class DecodingRunMetricsScript:
             axis.set_ylabel(METRIC_LABELS[metric_column])
             axis.grid(True, alpha=0.25)
             if axis.has_data():
-                axis.legend(fontsize=8)
+                axis.legend(fontsize=self.settings.legend_fontsize)
             else:
                 axis.text(0.5, 0.5, "No valid curves", ha="center", va="center", transform=axis.transAxes)
 
@@ -456,7 +457,7 @@ class DecodingRunMetricsScript:
             same_x_scale=plot_settings.same_x_scale_across_inputs,
             same_y_scale=plot_settings.same_y_scale_across_inputs,
         )
-        apply_figure_title(fig, plot_settings.title or DEFAULT_PLOT_TITLES[plot_name])
+        apply_figure_title(fig, plot_settings.title or DEFAULT_PLOT_TITLES[plot_name], fontsize=self.settings.legend_fontsize)
         return fig
 
     def _plot_at_decoding_vs_run_number(self, plot_name: str) -> Figure:
@@ -503,7 +504,7 @@ class DecodingRunMetricsScript:
             axis.set_ylabel(METRIC_LABELS[metric_column])
             axis.grid(True, alpha=0.25)
             if axis.has_data():
-                axis.legend(fontsize=8)
+                axis.legend(fontsize=self.settings.legend_fontsize)
             else:
                 axis.text(0.5, 0.5, "No decoded values", ha="center", va="center", transform=axis.transAxes)
 
@@ -512,7 +513,7 @@ class DecodingRunMetricsScript:
             same_x_scale=plot_settings.same_x_scale_across_inputs,
             same_y_scale=plot_settings.same_y_scale_across_inputs,
         )
-        apply_figure_title(fig, plot_settings.title or DEFAULT_PLOT_TITLES[plot_name])
+        apply_figure_title(fig, plot_settings.title or DEFAULT_PLOT_TITLES[plot_name], fontsize=self.settings.legend_fontsize)
         return fig
 
     def _build_metadata_pages(self) -> list[Figure]:

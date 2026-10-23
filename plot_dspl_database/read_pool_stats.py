@@ -17,6 +17,7 @@ from scipy.stats import spearmanr
 
 from optional_script_utils import (
     MetadataSection,
+    PlotScriptSettings,
     PlotTextSettings,
     apply_figure_title,
     build_metadata_pages,
@@ -102,7 +103,7 @@ ORDER BY item_id, region_id, position_id
 """
 
 
-class ReadPoolStatsSettings(BaseModel):
+class ReadPoolStatsSettings(PlotScriptSettings):
     model_config = ConfigDict(extra="forbid")
 
 
@@ -534,8 +535,8 @@ class ReadPoolStatsScript:
                     width=slot_widths,
                     color=ITEM_ID_COLOR_MAP.get(item_id, "#7f7f7f"),
                     alpha=0.82,
-                    edgecolor="black",
-                    linewidth=0.35,
+                    edgecolor="none",
+                    linewidth=0.0,
                     label=f"{item_names[item_id]} (n={len(item_values)})",
                 )
 
@@ -545,7 +546,7 @@ class ReadPoolStatsScript:
             if shared_bin_edges is not None:
                 axis.set_xlim(0.0, float(shared_bin_edges[-1]))
             axis.grid(axis="y", alpha=0.25, linestyle="--")
-            axis.legend(fontsize=8)
+            axis.legend(fontsize=self.settings.legend_fontsize)
 
         self._finish_figure(figure, axes, plot_name, plot_settings)
         return figure
@@ -590,7 +591,7 @@ class ReadPoolStatsScript:
             axis.set_ylabel("Normalized read-pool coverage")
             axis.grid(True, alpha=0.25, linestyle="--")
             if axis.has_data():
-                axis.legend(fontsize=8)
+                axis.legend(fontsize=self.settings.legend_fontsize)
             else:
                 axis.text(0.5, 0.5, "No delta_g data", ha="center", va="center", transform=axis.transAxes)
 
@@ -623,7 +624,7 @@ class ReadPoolStatsScript:
                 )
             axis.set_title(input_model.input_spec.name)
             axis.set_xlabel("Delta G")
-            axis.set_ylabel("Mean normalized read-pool coverage in bin")
+            axis.set_ylabel("Mean normalized read-pool coverage")
             axis.grid(axis="y", alpha=0.25, linestyle="--")
 
         self._finish_figure(figure, axes, plot_name, plot_settings)
@@ -641,7 +642,7 @@ class ReadPoolStatsScript:
             same_x_scale=plot_settings.same_x_scale_across_inputs,
             same_y_scale=plot_settings.same_y_scale_across_inputs,
         )
-        apply_figure_title(figure, plot_settings.title or DEFAULT_PLOT_TITLES[plot_name])
+        apply_figure_title(figure, plot_settings.title or DEFAULT_PLOT_TITLES[plot_name], fontsize=self.settings.legend_fontsize)
 
     def _make_axes_grid(self) -> tuple[Figure, list[Axes]]:
         return make_axes_grid(

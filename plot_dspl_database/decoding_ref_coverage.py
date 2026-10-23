@@ -23,6 +23,7 @@ from scipy.stats import spearmanr
 
 from optional_script_utils import (
     MetadataSection,
+    PlotScriptSettings,
     PlotTextSettings,
     apply_figure_title,
     build_metadata_pages,
@@ -76,7 +77,7 @@ DEFAULT_PLOT_EXPLANATIONS: dict[str, str] = {
 }
 
 
-class DecodingRefCoverageSettings(BaseModel):
+class DecodingRefCoverageSettings(PlotScriptSettings):
     model_config = ConfigDict(extra="forbid")
 
     use_single_run_id_instead: str | None = None
@@ -438,7 +439,7 @@ class DecodingRefCoverageScript:
             same_y_scale=plot_settings.same_y_scale_across_inputs,
         )
         title = plot_settings.title or DEFAULT_PLOT_TITLES[plot_name]
-        apply_figure_title(fig, title)
+        apply_figure_title(fig, title, fontsize=self.settings.legend_fontsize)
 
     def _build_metadata_pages(self) -> list[Figure]:
         script_metadata_lines = [
@@ -814,7 +815,7 @@ class DecodingRefCoverageScript:
                     reduced_ticks.append(finite_ticks[-1])
                 ax.set_xticks(reduced_ticks)
             ax.grid(axis="y", alpha=0.25, linestyle="--")
-            ax.legend(fontsize=8)
+            ax.legend(fontsize=self.settings.legend_fontsize)
 
         self._apply_figure_title(fig, plot_name, plot_settings)
         return fig
@@ -965,7 +966,7 @@ class DecodingRefCoverageScript:
             ax.set_xlabel("Coverage at first perfect decoding")
             ax.set_ylabel("Normalized number of references in bin")
             ax.grid(True, alpha=0.25, linestyle="--")
-            ax.legend(fontsize=8)
+            ax.legend(fontsize=self.settings.legend_fontsize)
 
         self._apply_figure_title(fig, plot_name, plot_settings)
         return fig
@@ -1036,7 +1037,7 @@ class DecodingRefCoverageScript:
             ax.set_xlabel("Delta G")
             ax.set_ylabel("Reference coverage at first decoding")
             ax.grid(True, alpha=0.25, linestyle="--")
-            ax.legend(fontsize=8)
+            ax.legend(fontsize=self.settings.legend_fontsize)
 
         self._apply_figure_title(fig, plot_name, plot_settings)
         return fig
@@ -1102,7 +1103,7 @@ class DecodingRefCoverageScript:
             ax.set_xlabel("Delta G")
             ax.set_ylabel("Mean coverage in bin")
             ax.grid(True, alpha=0.25, linestyle="--")
-            ax.legend(fontsize=8)
+            ax.legend(fontsize=self.settings.legend_fontsize)
 
         self._apply_figure_title(fig, plot_name, plot_settings)
         return fig
@@ -1166,7 +1167,7 @@ class DecodingRefCoverageScript:
             ax.set_xlabel("Delta G")
             ax.set_ylabel("Underdecoded reference probability")
             ax.grid(True, alpha=0.25, linestyle="--")
-            ax.legend(fontsize=8)
+            ax.legend(fontsize=self.settings.legend_fontsize)
 
         self._apply_figure_title(fig, plot_name, plot_settings)
         return fig
